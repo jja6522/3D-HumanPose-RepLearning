@@ -1,6 +1,6 @@
 # 3D-HumanPose-RepL
 
-This is a reproducibility study for ([DLow: Diversifying Latent FLows](https://arxiv.org/pdf/2003.08386.pdf))
+This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://arxiv.org/pdf/2003.08386.pdf)
 
 ## Setup
 
