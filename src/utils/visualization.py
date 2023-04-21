@@ -122,7 +122,6 @@ def render_animation(skeleton, poses_generator, algos, t_hist, fix_0=True, azim=
         poses = dict(filter(lambda x: x[0] in {'gt', 'context'} or algo == x[0].split('_')[0], all_poses.items()))
         for ax, title in zip(ax_3d, poses.keys()):
             ax.set_title(title, y=1.2)
-            pos = poses[0][i]
         poses = list(poses.values())
 
     def save_figs():
