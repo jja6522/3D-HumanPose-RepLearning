@@ -1,0 +1,17 @@
+name: 3D-HumanPose-RepL
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - pip=23.0.1
+  - python=3.8
+  - cudatoolkit=11.6.0
+  - pip:
+      - tensorflow==2.12.*
+      - nvidia-cudnn-cu11==8.6.0.163
+      - h5py>=3.8.0
+      - imageio>=2.27.0
+      - ipython>=8.5.0
+      - matplotlib>=3.6.1
+      - pandas>=2.0.0
+      - numpy>=1.23.4

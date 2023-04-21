@@ -8,9 +8,9 @@ This is a reproducibility study for ([DLow: Diversifying Latent FLows](https://a
 
 2. Create an new environment via conda
 
-- For Linux (CUDA 11.6 and PyTorch 1.12.1)
+- For Linux (CUDA 11.6 and Tensorflow 2.12.x)
     ```bash
-    conda env create -f env_linux_cuda116.yaml
+    conda env create -f env_linux_tensorflow.yaml
     ```
 
 3. Download the dataset from http://vision.imar.ro/ or use the preprocessed versions below:
