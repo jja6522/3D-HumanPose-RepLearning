@@ -7,7 +7,7 @@ dependencies:
   - python=3.8
   - cudatoolkit=11.6.0
   - pip:
-      - tensorflow==2.12.*
+      - tensorflow==2.10.0
       - nvidia-cudnn-cu11==8.6.0.163
       - h5py>=3.8.0
       - imageio>=2.27.0
