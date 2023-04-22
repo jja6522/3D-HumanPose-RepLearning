@@ -17,7 +17,7 @@ from tqdm import tqdm, trange
 RANDOM_SEED = 42
 
 batch_size = 64
-num_vae_epoch = 500
+num_vae_epoch = 50
 num_vae_data_sample = 5000
 vae_lr = 1.e-3
 all_algos = ['ae']
@@ -31,6 +31,32 @@ def set_seed(seed):
     tf.random.set_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+
+
+class AE(keras.Model):
+    """Variational autoencoder."""
+
+    def __init__(self, name='Autoencoder'):
+        super(AE, self).__init__(name=name)
+        # Encoder architecture
+        self.encoder = models.Sequential([
+                            layers.Flatten(input_shape=(125, 48)),
+                            layers.Dense(500, activation='relu', name='input_to_hidden'),
+                            layers.Dense(50, activation='sigmoid', name='hidden_to_latent')
+                        ], name='encoder')
+
+        # Decoder architecture
+        self.decoder = models.Sequential([
+                            layers.Dense(500, activation='relu', input_shape=(50, ), name='latent_to_hidden'),
+                            layers.Dense(6000, activation='sigmoid', name='hidden_to_output'),
+                            layers.Reshape((125, 48))
+                        ], name='decoder')
+
+    def encode(self, x):
+        return self.encoder(x)
+
+    def decode(self, z):
+        return self.decoder(z)
 
 
 if __name__ == "__main__":
@@ -48,84 +74,76 @@ if __name__ == "__main__":
     # Use the test set for generating samples
     test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
 
-    # Training mode
+    #######################################
+    # Model training
+    #######################################
     if args.mode == 'train':
 
-        # Encoder architecture
-        encoder = models.Sequential([
-            layers.Flatten(input_shape=(125, 48)),
-            layers.Dense(500, activation='relu', name='input_to_hidden'),
-            layers.Dense(50, activation='sigmoid', name='hidden_to_latent')
-        ], name='encoder')
+        autoencoder = AE(name='autoencoder')
+        autoencoder.encoder.summary()
+        autoencoder.decoder.summary()
 
-        encoder.summary()
-
-        # Decoder architecture
-        decoder = models.Sequential([
-            layers.Dense(500, activation='relu', input_shape=(50, ), name='latent_to_hidden'),
-            layers.Dense(6000, activation='sigmoid', name='hidden_to_output'),
-            layers.Reshape((125, 48))
-        ], name='decoder')
-
-        decoder.summary()
-
-        # Autoencoder
-        autoencoder = models.Model(inputs=encoder.input, outputs=decoder(encoder.output), name='autoencoder')
-        autoencoder.summary()
-
-        #######################################
-        # Model training
-        #######################################
-
-        # Loss function and optmizer
+        # Loss function, metrics and optimizer
         loss = tf.keras.losses.MeanSquaredError()
         optimizer = tf.keras.optimizers.Adam(learning_rate=vae_lr)
-
-        # Metrics
         training_loss_tracker = tf.keras.metrics.Mean(name="training_loss")
 
         train_stats = trange(0, desc='training_loss')
         for r in tqdm(range(0, num_vae_epoch)):
             generator = train_ds.sampling_generator(num_samples=num_vae_data_sample, batch_size=batch_size)
-            for traj_np in generator:
+            for x in generator:
                 #print(traj_np.shape)
-                traj_np = traj_np[..., 1:, :].reshape(traj_np.shape[0], traj_np.shape[1], -1)
+                x = x[..., 1:, :].reshape(x.shape[0], x.shape[1], -1)
                 #print(traj_np.shape)
 
                 with tf.GradientTape() as tape:
-                    Y_rec = autoencoder(traj_np, traj_np)
-                    total_loss = loss(traj_np, Y_rec)
+                    z = autoencoder.encode(x)
+                    y_rec = autoencoder.decode(z)
+                    total_loss = loss(x, y_rec)
+
                 gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
                 training_loss_tracker.update_state(total_loss)
                 train_stats.set_description('training_loss=%g' % training_loss_tracker.result())
 
         # Save the model to disk
-        autoencoder.save(f"models/autoencoder-{num_vae_epoch}.model")
+        autoencoder.encoder.save(f"models/encoder-{num_vae_epoch}.model")
+        autoencoder.decoder.save(f"models/decoder-{num_vae_epoch}.model")
 
+    #######################################
+    # Model Evaluation
+    #######################################
     elif args.mode == 'test':
 
-        autoencoder = models.load_model(f"models/autoencoder-{num_vae_epoch}.model")
+        autoencoder = AE(name='autoencoder')
+        autoencoder.encoder = models.load_model(f"models/encoder-{num_vae_epoch}.model")
+        autoencoder.decoder = models.load_model(f"models/decoder-{num_vae_epoch}.model")
 
         # Loss function and metrics
         loss = tf.keras.losses.MeanSquaredError()
         testing_loss_tracker = tf.keras.metrics.Mean(name="testing_loss")
 
-        #######################################
-        # Model evaluation
-        #######################################
         test_stats = trange(0, desc='testing_loss')
         test_generator = test_ds.sampling_generator(num_samples=num_vae_data_sample, batch_size=batch_size)
-        for traj_np in test_generator:
-            traj_np = traj_np[..., 1:, :].reshape(traj_np.shape[0], traj_np.shape[1], -1)
-            Y_rec = autoencoder.predict(traj_np)
-            total_loss = loss(traj_np, Y_rec)
+        for x in test_generator:
+            x = x[..., 1:, :].reshape(x.shape[0], x.shape[1], -1)
+
+            # Evaluat without updating gradients
+            z = autoencoder.encode(x)
+            y_rec = autoencoder.decode(z)
+            total_loss = loss(x, y_rec)
+
             testing_loss_tracker.update_state(total_loss)
             test_stats.set_description('testing_loss=%g' % testing_loss_tracker.result())
 
+    #######################################
+    # Model Inference
+    #######################################
     elif args.mode == 'inference':
 
-        autoencoder = models.load_model(f"models/autoencoder-{num_vae_epoch}.model")
+        autoencoder = AE(name='autoencoder')
+        autoencoder.encoder = models.load_model(f"models/encoder-{num_vae_epoch}.model")
+        autoencoder.decoder = models.load_model(f"models/decoder-{num_vae_epoch}.model")
 
         #######################################
         # Inference
@@ -138,25 +156,28 @@ if __name__ == "__main__":
         def get_prediction(data, algo, sample_num, num_seeds=1, concat_hist=True):
 
             # Flatten the sample pose for passing through the network
-            traj_np = data[..., 1:, :].reshape(data.shape[0], data.shape[1], -1)
-            print(traj_np.shape)
+            x = data[..., 1:, :].reshape(data.shape[0], data.shape[1], -1)
+            print(x.shape)
 
             # Take only the last t_hist frames
-            X = traj_np[:t_his]
-            print(X.shape)
+            x = x[:t_his]
+            print(x.shape)
 
             # Generate multiple samples
-            X = tf.repeat(X, repeats = [sample_num * num_seeds], axis=0)
-            print(X.shape)
+            x_multi = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
+            print(x_multi.shape)
 
             # Apply the autoencoder
-            Y = autoencoder.predict(X)
+            z = autoencoder.encode(x_multi)
+            y_rec_multi = autoencoder.decode(z)
+            y_rec_multi = y_rec_multi.numpy()
+            print(y_rec_multi.shape)
 
-            if Y.shape[0] > 1:
-                Y = Y.reshape(-1, sample_num, Y.shape[-2], Y.shape[-1])
+            if y_rec_multi.shape[0] > 1:
+                y_rec_multi = y_rec_multi.reshape(-1, sample_num, y_rec_multi.shape[-2], y_rec_multi.shape[-1])
             else:
-                Y = Y[None, ...]
-            return Y
+                y_rec_multi = y_rec_multi[None, ...]
+            return y_rec_multi
 
         def post_process(pred, data):
             # Unflatten reconstructed poses for evaluation

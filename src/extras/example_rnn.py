@@ -6,7 +6,7 @@ import math
 import json
 from tqdm import tqdm, trange
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, RNN, SimpleRNN, Dense, Flatten, TimeDistributed
+from tensorflow.keras.layers import Embedding, SimpleRNN, LSTM, GRU, Dense, Flatten, TimeDistributed
 
 ###########################################################
 # FIXME: Hack required to enable GPU operations by TF RNN
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         Embedding(input_dim=vocabSz, output_dim=vocabSz,
                   mask_zero=True, trainable=False, input_length=RNN_WINDOW_SZ,
                   embeddings_initializer=tf.keras.initializers.random_normal()),
-        SimpleRNN(units=RNN_STATE_SZ, return_sequences=True),
+        LSTM(units=RNN_STATE_SZ, return_sequences=True),
         Dense(units=vocabSz)
     ], name="RNN cell + linear classification layer")
 
