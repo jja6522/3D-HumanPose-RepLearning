@@ -13,11 +13,20 @@ import time
 import argparse
 from tqdm import tqdm, trange
 
+###########################################################
+# FIXME: Hack required to enable GPU operations by TF RNN
+###########################################################
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
+###########################################################
+# Global configurations
+###########################################################
 RANDOM_SEED = 42
 
 batch_size = 64
-num_vae_epoch = 50
+num_vae_epoch = 10
 num_vae_data_sample = 5000
 vae_lr = 1.e-3
 all_algos = ['ae']
@@ -38,19 +47,17 @@ class AE(keras.Model):
 
     def __init__(self, name='Autoencoder'):
         super(AE, self).__init__(name=name)
-        # Encoder architecture
-        self.encoder = models.Sequential([
-                            layers.Flatten(input_shape=(125, 48)),
-                            layers.Dense(500, activation='relu', name='input_to_hidden'),
-                            layers.Dense(50, activation='sigmoid', name='hidden_to_latent')
-                        ], name='encoder')
 
-        # Decoder architecture
+        self.encoder = models.Sequential([
+            layers.InputLayer(input_shape=(125, 48, )),
+            layers.GRU(units=128, return_sequences=True)
+        ], name="encoder")
+
         self.decoder = models.Sequential([
-                            layers.Dense(500, activation='relu', input_shape=(50, ), name='latent_to_hidden'),
-                            layers.Dense(6000, activation='sigmoid', name='hidden_to_output'),
-                            layers.Reshape((125, 48))
-                        ], name='decoder')
+            layers.InputLayer(input_shape=(125, 128, )),
+            layers.GRU(units=128, return_sequences=True),
+            layers.Dense(48)
+        ], name="decoder")
 
     def encode(self, x):
         return self.encoder(x)

@@ -12,8 +12,8 @@ from tensorflow.keras.layers import Embedding, SimpleRNN, LSTM, GRU, Dense, Flat
 # FIXME: Hack required to enable GPU operations by TF RNN
 ###########################################################
 gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    tf.config.experimental.set_memory_growth(gpus[0], True)
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 ##################################
 # Constants
