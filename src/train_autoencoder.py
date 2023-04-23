@@ -13,6 +13,8 @@ import time
 import argparse
 from tqdm import tqdm, trange
 
+from models import AE
+
 ###########################################################
 # FIXME: Hack required to enable GPU operations by TF RNN
 ###########################################################
@@ -25,20 +27,17 @@ for gpu in gpus:
 ###########################################################
 RANDOM_SEED = 42
 
-# Hyperparameters from the paper DLow
+# Hyperparameters for training/testing
 batch_size = 64
-num_epochs = 100
+num_epochs = 50
 samples_per_epoch = 5000
 learning_rate = 1.e-3 # Adam
-
-all_algos = ['ae']
-traj_dim = 48 # Stacked number of joints for training
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
 
+# Inference configurations
+all_algos = ['ae']
 nk = 5 # sample images for reconstruction
-nz = 128
-nh_rnn = 128
 
 
 def set_seed(seed):
@@ -46,36 +45,6 @@ def set_seed(seed):
     tf.random.set_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
-
-
-class AE(keras.Model):
-    """Variational autoencoder."""
-
-    def __init__(self, name='Autoencoder'):
-        super(AE, self).__init__(name=name)
-
-        # Encoder architecture
-        self.encoder = models.Sequential([
-            layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim)),
-            layers.Dense(300, activation='tanh', name='enc_mlp1'),
-            layers.Dense(200, activation='tanh', name='enc_mlp2')
-        ], name="encoder")
-
-        # Decoder architecture
-        self.decoder = models.Sequential([
-            layers.InputLayer(200),
-            layers.RepeatVector(t_pred),
-            layers.GRU(units=nh_rnn, return_sequences=True),
-            layers.Dense(300, activation='tanh', name='dec_mlp1'),
-            layers.Dense(200, activation='tanh', name='dec_mlp2'),
-            layers.Dense(traj_dim, activation='tanh', name='dec_mlp3')
-        ], name="decoder")
-
-    def encode(self, x):
-        return self.encoder(x)
-
-    def decode(self, z):
-        return self.decoder(z)
 
 
 if __name__ == "__main__":
@@ -87,10 +56,8 @@ if __name__ == "__main__":
     # Set the random sets for reproducibility
     set_seed(RANDOM_SEED)
 
-    #Load the dataset
+    # Load the train/test splits
     train_ds = DatasetH36M('train', t_his, t_pred, actions='all')
-
-    # Use the test set for generating samples
     test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
 
     #######################################
@@ -98,7 +65,11 @@ if __name__ == "__main__":
     #######################################
     if args.mode == 'train':
 
-        autoencoder = AE(name='autoencoder')
+        # traj_dim -> stacked number of joints for training
+        autoencoder = AE(name='autoencoder',
+                         traj_dim = train_ds.traj_dim,
+                         t_his = t_his,
+                         t_pred = t_pred)
         autoencoder.encoder.summary()
         autoencoder.decoder.summary()
 
@@ -189,7 +160,7 @@ if __name__ == "__main__":
         autoencoder.decoder.summary()
 
         #######################################
-        # Inference
+        # List of models to test
         #######################################
         algos = []
         for algo in all_algos:
