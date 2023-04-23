@@ -27,7 +27,7 @@ RANDOM_SEED = 42
 
 # Hyperparameters from the paper DLow
 batch_size = 64
-num_epochs = 50
+num_epochs = 100
 samples_per_epoch = 5000
 learning_rate = 1.e-3 # Adam
 
@@ -37,6 +37,8 @@ t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
 
 nk = 5 # sample images for reconstruction
+nz = 128
+nh_rnn = 128
 
 
 def set_seed(seed):
@@ -54,19 +56,19 @@ class AE(keras.Model):
 
         # Encoder architecture
         self.encoder = models.Sequential([
-            layers.InputLayer(input_shape=(t_his ,traj_dim)),
-            layers.GRU(units=128, return_sequences=False),
-            layers.RepeatVector(t_pred),
+            layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
-            layers.Dense(200, activation='tanh', name='enc_mlp2'),
+            layers.Dense(200, activation='tanh', name='enc_mlp2')
         ], name="encoder")
 
         # Decoder architecture
         self.decoder = models.Sequential([
-            layers.InputLayer(input_shape=(t_pred, 200, )),
+            layers.InputLayer(200),
+            layers.RepeatVector(t_pred),
+            layers.GRU(units=nh_rnn, return_sequences=True),
             layers.Dense(300, activation='tanh', name='dec_mlp1'),
-            layers.GRU(units=128, return_sequences=True),
-            layers.Dense(traj_dim, activation='tanh', name='dec_mlp2'),
+            layers.Dense(200, activation='tanh', name='dec_mlp2'),
+            layers.Dense(traj_dim, activation='tanh', name='dec_mlp3')
         ], name="decoder")
 
     def encode(self, x):
@@ -127,7 +129,6 @@ if __name__ == "__main__":
                     x_enc = autoencoder.encode(x)
                     y_rec = autoencoder.decode(x_enc)
                     total_loss = loss(y, y_rec)
-
                 gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
                 training_loss_tracker.update_state(total_loss)
@@ -145,6 +146,8 @@ if __name__ == "__main__":
         autoencoder = AE(name='autoencoder')
         autoencoder.encoder = models.load_model(f"models/encoder-{num_epochs}.model")
         autoencoder.decoder = models.load_model(f"models/decoder-{num_epochs}.model")
+        autoencoder.encoder.summary()
+        autoencoder.decoder.summary()
 
         # Loss function and metrics
         loss = tf.keras.losses.MeanSquaredError()
@@ -182,6 +185,8 @@ if __name__ == "__main__":
         autoencoder = AE(name='autoencoder')
         autoencoder.encoder = models.load_model(f"models/encoder-{num_epochs}.model")
         autoencoder.decoder = models.load_model(f"models/decoder-{num_epochs}.model")
+        autoencoder.encoder.summary()
+        autoencoder.decoder.summary()
 
         #######################################
         # Inference
