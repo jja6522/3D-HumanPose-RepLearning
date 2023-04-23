@@ -54,7 +54,7 @@ class VAE(keras.Model):
         t_pred=100,
         latent_dim=200,
         nh_rnn = 128,
-        name="autoencoder",
+        name="vae",
         **kwargs
     ):
         super(VAE, self).__init__(name=name, **kwargs)
@@ -64,7 +64,8 @@ class VAE(keras.Model):
         self.encoder = models.Sequential([
             layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
-            layers.Dense(latent_dim + latent_dim, activation='tanh', name='enc_mlp2')
+            layers.Dense(200, activation='tanh', name='enc_mlp2'),
+            layers.Dense(latent_dim + latent_dim, activation=None, name='latent')
         ], name="encoder")
 
         # Decoder architecture
@@ -74,27 +75,18 @@ class VAE(keras.Model):
             layers.GRU(units=nh_rnn, return_sequences=True),
             layers.Dense(300, activation='tanh', name='dec_mlp1'),
             layers.Dense(200, activation='tanh', name='dec_mlp2'),
-            layers.Dense(traj_dim, activation='tanh', name='dec_mlp3')
+            layers.Dense(traj_dim, activation=None, name='dec_mlp3')
         ], name="decoder")
 
-    @tf.function
-    def sample(self, eps=None):
-        if eps is None:
-            eps = tf.random.normal(shape=(100, self.latent_dim))
-        return self.decode(eps, apply_sigmoid=True)
-
     def encode(self, x):
-        mean, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
-        return mean, logvar
+        mu, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
+        return mu, logvar
 
-    def reparameterize(self, mean, logvar):
-        eps = tf.random.normal(shape=mean.shape)
-        return eps * tf.exp(logvar * .5) + mean
+    def reparameterize(self, mu, logvar):
+        std = tf.exp(0.5 * logvar)
+        eps = tf.random.normal(shape=mu.shape)
+        return mu + eps * std
 
-    def decode(self, z, apply_sigmoid=False):
-        logits = self.decoder(z)
-        if apply_sigmoid:
-            probs = tf.sigmoid(logits)
-            return probs
-        return logits
+    def decode(self, z):
+        return self.decoder(z)
 
