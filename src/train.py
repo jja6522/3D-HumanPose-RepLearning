@@ -31,11 +31,6 @@ RANDOM_SEED = 7 # For luck
 # Hyperparameters for training/testing
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
-nk = 5 # sample images for reconstruction
-
-# Inference configurations
-#all_algos = ['ae']
-
 
 
 def set_seed(seed):
@@ -45,10 +40,17 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
+def loss_function(x, x_rec, y, y_rec):
+    mse_x = tf.reduce_mean(tf.reduce_sum(tf.pow(x_rec - x, 2)))
+    mse_y = tf.reduce_mean(tf.reduce_sum(tf.pow(y_rec - y, 2)))
+    loss = mse_x + mse_y
+    return loss
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="AE", help="AE, VAE, DLow)")
+    parser.add_argument("--model", default="AE", help="AE, VAE, DLow")
     parser.add_argument("--num_epochs", type=int, default=30, help="Numer of epochs for training")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="samples_per_epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
@@ -58,11 +60,13 @@ if __name__ == "__main__":
     # Set the random sets for reproducibility
     set_seed(RANDOM_SEED)
 
-    # Load the train/test splits
+    #######################################
+    # Dataset loading
+    #######################################
     train_ds = DatasetH36M('train', t_his, t_pred, actions='all')
     test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
 
-    # Load the model to train
+    # Define the available models
     model_dict = {
                   "AE": AE(name='autoencoder',
                            traj_dim = train_ds.traj_dim,
@@ -80,7 +84,6 @@ if __name__ == "__main__":
     #######################################
     # Model training
     #######################################
-
     print("Training model:", type(model))
     model.summary()
 
@@ -108,15 +111,14 @@ if __name__ == "__main__":
             y = np.transpose(traj[t_his:], (1, 0, 2))
 
             with tf.GradientTape() as tape:
-                x_enc = model.encode(x)
-                y_rec = model.decode(x_enc)
-                total_loss = loss(y, y_rec)
+                z = model.encode(x, y)
+                x_rec, y_rec = model.decode(z)
+                total_loss = loss_function(x, x_rec, y, y_rec)
             gradients = tape.gradient(total_loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
             training_loss_tracker.update_state(total_loss)
             train_stats.set_description('training_loss=%g' % training_loss_tracker.result())
 
     # Save the model to disk
-    autoencoder.encoder.save(f"models/encoder-{num_epochs}.model")
-    autoencoder.decoder.save(f"models/decoder-{num_epochs}.model")
+    model.save_model(args.num_epochs)
 
