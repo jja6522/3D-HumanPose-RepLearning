@@ -43,6 +43,10 @@ class AE(keras.Model):
     def decode(self, z):
         return self.decoder(z)
 
+    def summary(self):
+        self.encoder.summary()
+        self.decoder.summary()
+
 
 class VAE(keras.Model):
     """Variational autoencoder."""
