@@ -65,6 +65,8 @@ class VAE(keras.Model):
             layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
             layers.Dense(200, activation='tanh', name='enc_mlp2'),
+            # FIXME: Double check if a multivariate gaussian per joint is required
+            # latent layer for mu and sigma
             layers.Dense(latent_dim + latent_dim, activation=None, name='latent')
         ], name="encoder")
 

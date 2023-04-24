@@ -29,7 +29,7 @@ RANDOM_SEED = 42
 
 # Hyperparameters for training/testing
 batch_size = 64
-num_epochs = 30
+num_epochs = 500
 samples_per_epoch = 5000
 learning_rate = 1.e-3 # Adam
 t_his = 25 # number of past motions (c)

@@ -29,3 +29,30 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
     wget http://visiondata.cis.upenn.edu/volumetric/h36m/S9.tar
     wget http://visiondata.cis.upenn.edu/volumetric/h36m/S11.tar
     ```
+
+## Train the models
+
+Simple Autoencoder
+
+```python
+python src/train_autoencoder.py
+```
+
+Variational Autoencoder
+```python
+python src/python src/train_vae.py
+```
+
+## Inference using a model
+
+Simple Autoencoder
+
+```python
+python src/train_vae.py --mode inference
+```
+
+Variational Autoencoder
+```python
+python src/train_vae.py --mode inference
+```
+
