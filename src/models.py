@@ -12,7 +12,7 @@ class AE(keras.Model):
         traj_dim=48,
         t_his=25,
         t_pred=100,
-        latent_dim=200,
+        latent_dim=128,
         nh_rnn = 128,
         name="autoencoder",
         **kwargs
@@ -37,22 +37,23 @@ class AE(keras.Model):
         self.enc_mlp = models.Sequential([
             layers.InputLayer(input_shape=(2 * nh_rnn)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
-            layers.Dense(latent_dim, activation='tanh', name='latent')
+            layers.Dense(200, activation='tanh', name='enc_mlp2'),
+            layers.Dense(latent_dim, activation=None, name='latent')
         ], name="enc_mlp")
 
         # Decoder MLP for both past and future motions
         self.dec_mlp = models.Sequential([
             layers.InputLayer(latent_dim),
+            layers.Dense(200, activation='tanh', name='dec_mlp2'),
             layers.Dense(300, activation='tanh', name='dec_mlp1'),
-            #layers.RepeatVector(t_his + t_pred)
-        ], name="dec_mlp1")
+        ], name="dec_mlp")
 
         # Decoder RNN for future motions x
         self.dec_rnn_future = models.Sequential([
             layers.InputLayer(input_shape=(300)),
             layers.RepeatVector(t_his),
             layers.GRU(units=nh_rnn, input_shape=(t_pred, traj_dim), return_sequences=True),
-            layers.Dense(traj_dim, activation='tanh', name='dec_mlp_future')
+            layers.Dense(traj_dim)
         ], name="dec_rnn_future")
 
         # Decoder RNN for past motions c
@@ -60,7 +61,7 @@ class AE(keras.Model):
             layers.InputLayer(input_shape=(300)),
             layers.RepeatVector(t_pred),
             layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim), return_sequences=True),
-            layers.Dense(traj_dim, activation='tanh', name='dec_mlp_past')
+            layers.Dense(traj_dim)
         ], name="dec_rnn_past")
 
     def encode(self, x, y):
