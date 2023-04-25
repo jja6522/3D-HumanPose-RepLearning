@@ -31,7 +31,8 @@ RANDOM_SEED = 7 # For luck
 # Hyperparameters for training/testing
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
-
+lambda_v = 1000 # Regularizer between all predicted poses and last/next
+beta = 0.1
 
 def set_seed(seed):
     """Set seed for (1) tensorflow, (2) random and (3) numpy for stable results"""
@@ -40,18 +41,29 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def loss_function(x, x_rec, y, y_rec):
-    mse_x = tf.reduce_mean(tf.reduce_sum(tf.pow(x_rec - x, 2)))
-    mse_y = tf.reduce_mean(tf.reduce_sum(tf.pow(y_rec - y, 2)))
-    loss = mse_x + mse_y
-    return loss
+def loss_function_ae(x, y, y_rec):
+
+    # MSE between the ground truth future and predicted poses
+    batch_mse = tf.reduce_sum(tf.pow(y_rec - y, 2), axis=[1, 2])
+    mean_mse = tf.reduce_mean(batch_mse)
+
+    # MSE between last pose and next predicted pose
+    last_gt_pose = x[:, -1, :]
+    first_pred_pose = y_rec[:, 0, :]
+
+    batch_mse_v = tf.reduce_sum(tf.pow(last_gt_pose - first_pred_pose, 2), axis=[1])
+    mean_mse_v = tf.reduce_mean(batch_mse_v)
+
+    total_loss = mean_mse + lambda_v * mean_mse_v
+
+    return total_loss, mean_mse, mean_mse_v
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="AE", help="AE, VAE, DLow")
-    parser.add_argument("--num_epochs", type=int, default=30, help="Numer of epochs for training")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for training")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="samples_per_epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument("--lrate", type=int, default=1.e-3, help="Learning rate")
@@ -88,12 +100,13 @@ if __name__ == "__main__":
     model.summary()
 
     # Loss function, metrics and optimizer
-    loss = tf.keras.losses.MeanSquaredError()
     optimizer = tf.keras.optimizers.Adam(learning_rate=args.lrate)
-    training_loss_tracker = tf.keras.metrics.Mean(name="training_loss")
+    total_loss_tracker = tf.keras.metrics.Mean()
+    mse_loss_tracker = tf.keras.metrics.Mean()
+    mse_v_loss_tracker = tf.keras.metrics.Mean()
 
-    train_stats = trange(0, desc='training_loss')
-    for r in tqdm(range(0, args.num_epochs)):
+    for epoch in tqdm(range(0, args.num_epochs)):
+        start_time = time.time()
         generator = train_ds.sampling_generator(num_samples=args.samples_per_epoch, batch_size=args.batch_size)
         for traj_np in generator:
 
@@ -112,12 +125,20 @@ if __name__ == "__main__":
 
             with tf.GradientTape() as tape:
                 z = model.encode(x, y)
-                x_rec, y_rec = model.decode(z)
-                total_loss = loss_function(x, x_rec, y, y_rec)
+                y_rec = model.decode(z)
+                total_loss, mean_mse, mean_mse_v = loss_function_ae(x, y, y_rec)
+
             gradients = tape.gradient(total_loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            training_loss_tracker.update_state(total_loss)
-            train_stats.set_description('training_loss=%g' % training_loss_tracker.result())
+            total_loss_tracker.update_state(total_loss)
+            mse_loss_tracker.update_state(mean_mse)
+            mse_v_loss_tracker.update_state(mean_mse_v)
+
+        # Compute the losses at the end of each epoch
+        elapsed_time = time.time() - start_time
+        tqdm.write("====> Epoch %i(%.2fs): Loss: %g\tMSE: %g\tMSE_v: %g" % 
+                    (epoch, elapsed_time,
+                     total_loss_tracker.result(), mse_loss_tracker.result(), mse_v_loss_tracker.result()))
 
     # Save the model to disk
     model.save_model(args.num_epochs)

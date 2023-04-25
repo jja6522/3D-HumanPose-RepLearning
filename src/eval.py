@@ -59,7 +59,7 @@ def sample(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
 
     # Repeat the pose for the number of samples
     x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
-    y_mul = tf.repeat(y, repeats = [sample_num * num_seeds], axis=0)
+    #y_mul = tf.repeat(y, repeats = [sample_num * num_seeds], axis=0)
     y_mul_new = model.sample(x_mul)
 
     # Merge the past motions c with the future predicted motions y
@@ -96,7 +96,7 @@ def reconstruct(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
 
     # Apply the autoencoder to reconstruct the pose
     z = model.encode(x_mul, y_mul)
-    x_rec_mul, y_rec_mul = model.decode(z)
+    y_rec_mul = model.decode(z)
 
     # Merge the past motions c with the future predicted motions y
     x_mul = x_mul.numpy()
@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="AE", help="AE, VAE, DLow")
-    parser.add_argument("--num_epochs", type=int, default=30, help="Numer of epochs for evaluation")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for evaluation")
     parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
     parser.add_argument("--action", default="reconstruct", help="reconstruct, sample, stats")
     args = parser.parse_args()
