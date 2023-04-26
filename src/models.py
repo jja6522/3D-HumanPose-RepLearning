@@ -69,13 +69,13 @@ class AE(keras.Model):
         y_rec = self.dec_rnn_future(h_y)
         return y_rec
 
+    # FIXME: If there a better way to sample from the latent space?
     def sample(self, x):
-        # NOTE: The sampling distribution is unknown in a regular encoder.
-        # Using random normal for testing but can be anything
-        y_sample = tf.random.normal(shape=[x.shape[0], self.t_pred, self.traj_dim])
-        z = self.encode(x, y_sample)
-        y_rec = self.decode(z)
-        return y_rec
+        z_sample = tf.random.uniform(shape=[x.shape[0], self.latent_dim])
+        y = self.decode(z_sample)
+        z = self.encode(x, y)
+        y_new = self.decode(z)
+        return y_new
 
     def summary(self):
         self.enc_rnn_past.summary()
@@ -171,12 +171,12 @@ class VAE(keras.Model):
         return y_rec
 
     def sample(self, x):
-        # FIXME: Sampling is not working as expected
-        y_sample = tf.random.normal(shape=[x.shape[0], self.t_pred, self.traj_dim])
-        mu, logvar = self.encode(x, y_sample)
+        z_sample = tf.random.normal(shape=[x.shape[0], self.latent_dim])
+        y = self.decode(z_sample)
+        mu, logvar = self.encode(x, y)
         z = self.reparameterize(mu, logvar)
-        y_rec = self.decode(z)
-        return y_rec
+        y_new = self.decode(z)
+        return y_new
 
     def summary(self):
         self.enc_rnn_past.summary()

@@ -40,7 +40,7 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def sample(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
+def sampling(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
     # Remove the center hip joint for training
     traj_np = traj_np[..., 1:, :]
 
@@ -52,11 +52,11 @@ def sample(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
 
     # Transpose back to batches and take past and future motions for encoding
     x = np.transpose(traj[:t_his], (1, 0, 2))
-    y = np.transpose(traj[t_his:], (1, 0, 2))
 
     # Repeat the pose for the number of samples
     x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
-    #y_mul = tf.repeat(y, repeats = [sample_num * num_seeds], axis=0)
+
+    # Take a random sample from the latent space
     y_mul_new = model.sample(x_mul)
 
     # Merge the past motions c with the future predicted motions y
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="ae", help="vae, vae, dlow")
     parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for evaluation")
     parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
-    parser.add_argument("--action", default="reconstruct", help="reconstruct, sample, stats")
+    parser.add_argument("--action", default="reconstruct", help="reconstruct, sampling, stats")
     args = parser.parse_args()
 
     # Set the random sets for reproducibility
@@ -175,7 +175,7 @@ if __name__ == "__main__":
                 if args.action == 'reconstruct':
                     pred = reconstruct(data, name, args.num_samples)[0]
                 elif args.action == 'sample':
-                    pred = sample(data, name, args.num_samples)[0]
+                    pred = sampling(data, name, args.num_samples)[0]
                 pred = post_process(pred, data)
                 for i in range(1, pred.shape[0] + 1):
                     poses[f'{name}_{i}'] = pred[i-1]

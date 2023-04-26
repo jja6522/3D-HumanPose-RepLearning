@@ -54,7 +54,7 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
 - Simple Autoencoder (Sampling)
 
     ```python
-    python src/eval.py --model ae --action sample
+    python src/eval.py --model ae --action sampling
     ```
 
 - Variational Autoencoder (Reconstruction)
@@ -66,6 +66,6 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
 - Variational Autoencoder (Sampling)
 
     ```python
-    python src/eval.py --model vae --action sample
+    python src/eval.py --model vae --action sampling
     ```
 
