@@ -40,7 +40,7 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def sampling(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
+def sampling(traj_np, model, sample_num, num_seeds=1, concat_hist=True):
     # Remove the center hip joint for training
     traj_np = traj_np[..., 1:, :]
 
@@ -72,7 +72,7 @@ def sampling(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
     return merged_frames
 
 
-def reconstruct(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
+def reconstruct(traj_np, model, sample_num, num_seeds=1, concat_hist=True):
 
     # Remove the center hip joint for training
     traj_np = traj_np[..., 1:, :]
@@ -151,17 +151,19 @@ if __name__ == "__main__":
                   "vae": VAE(name='vae')
                   }
 
-    if args.model in model_dict:
-        model = model_dict[args.model]
-
-    # Load the model to sample
-    model.load_model(args.num_epochs)
-    model.summary()
-
     #######################################
     # Model to be considered
     #######################################
-    eval_models = [model.name]
+    if args.model == 'all':
+        eval_models = model_dict.values()
+        print(eval_models)
+    else:
+        eval_models = [model_dict[args.model]]
+        print(eval_models)
+
+    for model in eval_models:
+        model.load_model(args.num_epochs)
+        model.summary()
 
     def pose_generator():
         while True:
@@ -171,17 +173,18 @@ if __name__ == "__main__":
             gt[:, :1, :] = 0
             poses = {'context': gt, 'gt': gt}
             # models
-            for name in eval_models:
+            for model in eval_models:
                 if args.action == 'reconstruct':
-                    pred = reconstruct(data, name, args.num_samples)[0]
-                elif args.action == 'sample':
-                    pred = sampling(data, name, args.num_samples)[0]
+                    pred = reconstruct(data, model, args.num_samples)[0]
+                elif args.action == 'sampling':
+                    pred = sampling(data, model, args.num_samples)[0]
                 pred = post_process(pred, data)
                 for i in range(1, pred.shape[0] + 1):
-                    poses[f'{name}_{i}'] = pred[i-1]
+                    poses[f'{model.name}_{i}'] = pred[i-1]
             yield poses
 
     # Invoke the post generator and rendering
     pose_gen = pose_generator()
-    render_animation(test_ds.skeleton, pose_gen, eval_models, t_his, fix_0=True, output=None, size=5, ncol=7, interval=50)
+    model_names = [model.name for model in eval_models]
+    render_animation(test_ds.skeleton, pose_gen, model_names, t_his, fix_0=True, output=None, size=5, ncol=7, interval=50)
 

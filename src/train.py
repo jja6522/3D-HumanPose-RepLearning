@@ -31,8 +31,9 @@ RANDOM_SEED = 7 # For luck
 # Hyperparameters for training/testing
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
-lambda_v = 1000 # Regularizer between all predicted poses and last/next
-beta = 0.1
+lambda_j_ae = 1000  # AE Weighting factor for (c) between last past pose and first predicted pose
+lambda_j_vae = 1000 # VAE Weighting factor for (c) between last past pose and first predicted pose
+beta_vae = 0.1 # VAE Regularizer for KL Divergence; higher values aim at precision and lower values aim at diversity
 
 
 def set_seed(seed):
@@ -55,7 +56,7 @@ def loss_function_ae(x, y, y_rec):
     batch_mse_v = tf.reduce_sum(tf.pow(last_gt_pose - first_pred_pose, 2), axis=[1])
     mean_mse_v = tf.reduce_mean(batch_mse_v)
 
-    total_loss = mean_mse + lambda_v * mean_mse_v
+    total_loss = mean_mse + lambda_j_ae * mean_mse_v
 
     return total_loss, mean_mse, mean_mse_v
 
@@ -77,7 +78,7 @@ def loss_function_vae(x, y, y_rec, mu, logvar):
     batch_kl_divergence = -0.5 * tf.reduce_sum(1 + logvar - tf.square(mu) - tf.exp(logvar), axis=1)
     mean_kl_divergence = tf.reduce_mean(batch_kl_divergence)
 
-    total_loss = mean_mse + lambda_v * mean_mse_v + beta * mean_kl_divergence
+    total_loss = mean_mse + lambda_j_vae * mean_mse_v + beta_vae * mean_kl_divergence
 
     return total_loss, mean_mse, mean_mse_v, mean_kl_divergence
 
@@ -169,12 +170,12 @@ if __name__ == "__main__":
         # Compute the losses at the end of each epoch
         elapsed_time = time.time() - start_time
         if model.name == 'ae':
-            tqdm.write("====> Epoch %i(%.2fs): Loss: %g\tMSE: %g\tMSE_v: %g" % 
-                        (epoch, elapsed_time,
+            tqdm.write("====> [%s] Epoch %i(%.2fs)\tLoss: %g\tMSE: %g\tMSE_v: %g" % 
+                        (model.name, epoch, elapsed_time,
                          total_loss_tracker.result(), mse_loss_tracker.result(), mse_v_loss_tracker.result()))
         elif model.name == 'vae':
-            tqdm.write("====> Epoch %i(%.2fs): Loss: %g\tMSE: %g\tMSE_v: %g\tKLD: %g" %
-                        (epoch, elapsed_time,
+            tqdm.write("====> [%s] Epoch %i(%.2fs)\tLoss: %g\tMSE: %g\tMSE_v: %g\tKLD: %g" %
+                        (model.name, epoch, elapsed_time,
                          total_loss_tracker.result(), mse_loss_tracker.result(), mse_v_loss_tracker.result(), kl_loss_tracker.result()))
 
     # Save the model to disk

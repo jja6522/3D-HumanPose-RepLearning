@@ -71,7 +71,7 @@ class AE(keras.Model):
 
     # FIXME: If there a better way to sample from the latent space?
     def sample(self, x):
-        z_sample = tf.random.uniform(shape=[x.shape[0], self.latent_dim])
+        z_sample = tf.random.normal(shape=[x.shape[0], self.latent_dim])
         y = self.decode(z_sample)
         z = self.encode(x, y)
         y_new = self.decode(z)
