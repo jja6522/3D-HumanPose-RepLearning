@@ -35,24 +35,37 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
 - Simple Autoencoder
 
     ```python
-    python src/train.py --model AE
+    python src/train.py --model ae
     ```
 
 - Variational Autoencoder
     ```python
-    python src/train.py --model VAE
+    python src/train.py --model vae
     ```
 
 ## Evaluate a pre-trained model
 
-- Reconstruction
+- Simple Autoencoder (Reconstruction)
 
     ```python
-    python src/eval.py --model AE --action reconstruct
+    python src/eval.py --model ae --action reconstruct
     ```
 
-- Sampling (Using a normal distribution by default)
+- Simple Autoencoder (Sampling)
+
     ```python
-    python src/eval.py --model AE --action sample
+    python src/eval.py --model ae --action sample
+    ```
+
+- Variational Autoencoder (Reconstruction)
+
+    ```python
+    python src/eval.py --model vae --action reconstruct
+    ```
+
+- Variational Autoencoder (Sampling)
+
+    ```python
+    python src/eval.py --model vae --action sample
     ```
 

@@ -32,9 +32,6 @@ RANDOM_SEED = 7 # For luck
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (t)
 
-# Inference configurations
-all_algos = ['ae']
-
 
 def set_seed(seed):
     """Set seed for (1) tensorflow, (2) random and (3) numpy for stable results"""
@@ -94,9 +91,13 @@ def reconstruct(traj_np, algo, sample_num, num_seeds=1, concat_hist=True):
     x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
     y_mul = tf.repeat(y, repeats = [sample_num * num_seeds], axis=0)
 
-    # Apply the autoencoder to reconstruct the pose
-    z = model.encode(x_mul, y_mul)
-    y_rec_mul = model.decode(z)
+    if model.name == 'ae':
+        z = model.encode(x_mul, y_mul)
+        y_rec_mul = model.decode(z)
+    elif model.name == 'vae':
+        mu, logvar = model.encode(x_mul, y_mul)
+        z = model.reparameterize(mu, logvar)
+        y_rec_mul = model.decode(z)
 
     # Merge the past motions c with the future predicted motions y
     x_mul = x_mul.numpy()
@@ -130,7 +131,7 @@ def post_process(pred, data):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="AE", help="AE, VAE, DLow")
+    parser.add_argument("--model", default="ae", help="vae, vae, dlow")
     parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for evaluation")
     parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
     parser.add_argument("--action", default="reconstruct", help="reconstruct, sample, stats")
@@ -142,13 +143,12 @@ if __name__ == "__main__":
     #######################################
     # Dataset loading
     #######################################
-    #train_ds = DatasetH36M('train', t_his, t_pred, actions='all')
     test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
 
     # Define the available models
     model_dict = {
-                  "AE": AE(name='autoencoder'),
-                  "VAE": VAE(name='vae')
+                  "ae": AE(name='ae'),
+                  "vae": VAE(name='vae')
                   }
 
     if args.model in model_dict:
@@ -161,10 +161,7 @@ if __name__ == "__main__":
     #######################################
     # Model to be considered
     #######################################
-    algos = []
-    for algo in all_algos:
-        algos.append(algo)
-    vis_algos = algos.copy()
+    eval_models = [model.name]
 
     def pose_generator():
         while True:
@@ -174,17 +171,17 @@ if __name__ == "__main__":
             gt[:, :1, :] = 0
             poses = {'context': gt, 'gt': gt}
             # models
-            for algo in vis_algos:
+            for name in eval_models:
                 if args.action == 'reconstruct':
-                    pred = reconstruct(data, algo, args.num_samples)[0]
+                    pred = reconstruct(data, name, args.num_samples)[0]
                 elif args.action == 'sample':
-                    pred = sample(data, algo, args.num_samples)[0]
+                    pred = sample(data, name, args.num_samples)[0]
                 pred = post_process(pred, data)
                 for i in range(1, pred.shape[0] + 1):
-                    poses[f'{algo}_{i}'] = pred[i-1]
+                    poses[f'{name}_{i}'] = pred[i-1]
             yield poses
 
     # Invoke the post generator and rendering
     pose_gen = pose_generator()
-    render_animation(test_ds.skeleton, pose_gen, vis_algos, t_his, fix_0=True, output=None, size=5, ncol=7, interval=50)
+    render_animation(test_ds.skeleton, pose_gen, eval_models, t_his, fix_0=True, output=None, size=5, ncol=7, interval=50)
 
