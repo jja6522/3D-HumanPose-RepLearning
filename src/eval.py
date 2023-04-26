@@ -131,8 +131,8 @@ def post_process(pred, data):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="ae", help="vae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for evaluation")
+    parser.add_argument("--model", default="all", help="all, vae, vae, dlow")
+    parser.add_argument("--num_epochs", type=int, default=500, help="Numer of epochs for evaluation")
     parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
     parser.add_argument("--action", default="reconstruct", help="reconstruct, sampling, stats")
     args = parser.parse_args()

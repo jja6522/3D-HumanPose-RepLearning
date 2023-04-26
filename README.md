@@ -32,40 +32,40 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
 
 ## Train the models
 
-- Simple Autoencoder
+- Simple Autoencoder: Default 500 epochs
 
     ```python
     python src/train.py --model ae
     ```
 
-- Variational Autoencoder
+- Variational Autoencoder: Default 500 epochs
     ```python
     python src/train.py --model vae
     ```
 
 ## Evaluate a pre-trained model
 
-- Simple Autoencoder (Reconstruction)
+- Reconstruction: All models trained for 500 epochs (Autoencoder, Variational Autoencoder)
 
     ```python
-    python src/eval.py --model ae --action reconstruct
+    python src/eval.py
     ```
 
-- Simple Autoencoder (Sampling)
+- Sampling: All models trained for 500 epochs (Autoencoder, Variational Autoencoder)
 
     ```python
-    python src/eval.py --model ae --action sampling
+    python src/eval.py --action sampling
     ```
 
-- Variational Autoencoder (Reconstruction)
+- Reconstruction: Simple Autoencoder trained for 50 epochs
 
     ```python
-    python src/eval.py --model vae --action reconstruct
+    python src/eval.py --model ae --num_epochs 50
     ```
 
-- Variational Autoencoder (Sampling)
+- Sampling: Variational Autoencoder trained for 50 epochs
 
     ```python
-    python src/eval.py --model vae --action sampling
+    python src/eval.py --model vae --num_epochs 50 --action sampling
     ```
 

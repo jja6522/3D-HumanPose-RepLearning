@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="ae", help="vae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=50, help="Numer of epochs for training")
+    parser.add_argument("--num_epochs", type=int, default=500, help="Numer of epochs for evaluation")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="samples_per_epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument("--lrate", type=int, default=1.e-3, help="Learning rate")
