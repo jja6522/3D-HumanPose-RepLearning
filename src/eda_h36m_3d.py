@@ -16,8 +16,7 @@ import time
 #            'Discussion', 'Discussion 1', 'Purchases', 'Phoning', 'Photo', 'WalkDog 1', 'Walking 1', 
 #            'SittingDown', 'Smoking 1', 'Purchases 1']
 
-dataset = DatasetH36M('train', actions={'SittingDown'})
-data = dataset.sample()
+dataset = DatasetH36M('train', actions={'Smoking'})
 
 def pose_generator():
     while True:

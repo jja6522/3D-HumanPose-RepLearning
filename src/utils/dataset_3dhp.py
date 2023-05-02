@@ -3,10 +3,6 @@ import os
 from utils.dataset import Dataset
 from utils.skeleton import Skeleton
 
-# The dataset contains 32 joints but only 16 are movable
-
-# compatible with H36 dataset
-joint_idx = [8, 6, 15, 16, 17, 10, 11, 12, 24, 25, 26, 19, 20, 21, 5, 4, 7]
 
 class Dataset3dhp(Dataset):
 
@@ -21,17 +17,17 @@ class Dataset3dhp(Dataset):
         self.subjects_split = {'train': [1, 5, 6, 7, 8],
                                'test': [2, 3]}
         self.subjects = ['S%d' % x for x in self.subjects_split[self.mode]]
-        self.skeleton = Skeleton(parents=[-1, 0, 1, 2, 3, 4, 0, 6, 7, 8, 9, 0, 11, 12, 13, 14, 12,
-                                          16, 17, 18, 19, 20, 19, 22, 12, 24, 25, 26, 27, 28, 27, 30],
-                                 joints_left=[6, 7, 8, 9, 10, 16, 17, 18, 19, 20, 21, 22, 23],
-                                 joints_right=[1, 2, 3, 4, 5, 24, 25, 26, 27, 28, 29, 30, 31])
-        self.removed_joints = {4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31}
-        self.kept_joints = np.array([x for x in range(32) if x not in self.removed_joints])
-        self.skeleton.remove_joints(self.removed_joints)
-        self.skeleton._parents[11] = 8
-        self.skeleton._parents[14] = 8
+        self.skeleton = Skeleton(parents=[-1, 0, 1, 2, 3,
+                                          2, 5, 6,
+                                          2, 8, 9,
+                                          0, 11, 12,
+                                          0, 14, 15],
+                                joints_left=[5, 6, 7, 11, 12, 13],
+                                joints_right=[8, 9, 10, 14, 15, 16])
+        self.kept_joints = np.arange(17)
         self.process_data()
 
+    #FIXME: This part needs to be adapted for the new dataset!
     def process_data(self):
         data_o = np.load(self.data_file, allow_pickle=True)['data'].item()
         data_f = dict(filter(lambda x: x[0] in self.subjects, data_o.items()))
