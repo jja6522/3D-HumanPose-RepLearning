@@ -8,6 +8,9 @@ from utils.visualization import render_animation
 from utils.skeleton import Skeleton
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy as np
+import math
+from scipy.spatial.transform import Rotation
 
 
 # Load the data from a matlab file
@@ -133,46 +136,29 @@ def pose_generator():
         joints_idx = [4, 3, 5, 6, 7, 9, 10, 11, 14, 15, 16, 18, 19, 20, 23, 24, 25]
         sample = sample[:,:, joints_idx]
 
-        # normalize
-        xmax, xmin = sample.max(), sample.min()
-        sample_norm = (sample - xmin) / (xmax - xmin)
+        # Rotate 270 degrees all coordinates
+        sample_new = sample.reshape(sample.shape[1] * sample.shape[2], 3)
+
+        # Axis and rotation matrix
+        axis = [1, 0, 0]
+        axis = axis / np.linalg.norm(axis)
+        rot = Rotation.from_rotvec(3 * np.pi/2 * axis)
+
+        # Apply rotation
+        sample_rot = rot.apply(sample_new)
+        sample_rot = sample_rot.reshape(sample.shape[1], sample.shape[2], 3)
+
+        # standard normalization
+        mean = sample_rot.mean()
+        std = sample_rot.std()
+        sample_norm = (sample_rot - mean) / std
 
         # gt
-        gt = sample_norm[0].copy()
-
-        #gt[:, [0,1, 2], :] = 0
-        #gt[:, :1, :] = 0
+        gt = sample_norm.copy()
         poses = {'context': gt, 'gt': gt}
         yield poses
 
 pose_gen = pose_generator()
 
 render_animation(skeleton, pose_gen, 'test', 25, fix_0=True, output=None, size=8, ncol=2, interval=50)
-
-
-data_file = os.path.join('data', 'data_3dhp.npz')
-data_o = np.load(data_file, allow_pickle=True)['data'].item()
-
-# Test sampling from the dataset
-dataset = Dataset3dhp('train')
-
-def pose_generator():
-    while True:
-        #sample = dataset.sample()
-        #sample = sample[0].copy()
-        sample = data_o['S1']['Seq1'][500:625]
-
-        # normalize
-        xmax, xmin = sample.max(), sample.min()
-        norm = (sample - xmin) / (xmax - xmin)
-
-        # gt
-        gt = norm.copy()
-        #gt[:, :1, :] = 0
-        poses = {'context': gt, 'gt': gt}
-        yield poses
-
-pose_gen = pose_generator()
-
-render_animation(dataset.skeleton, pose_gen, 'test', 25, fix_0=True, output=None, size=8, ncol=2, interval=50)
 
