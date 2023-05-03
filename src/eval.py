@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 
 from utils.dataset_h36m import DatasetH36M
 from utils.visualization import render_animation
+from utils.metrics import sampling
+
 import time
 import argparse
 from tqdm import tqdm, trange
@@ -38,38 +40,6 @@ def set_seed(seed):
     tf.random.set_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
-
-
-def sampling(traj_np, model, sample_num, num_seeds=1, concat_hist=True):
-    # Remove the center hip joint for training
-    traj_np = traj_np[..., 1:, :]
-
-    # Stack all joints
-    traj_np = traj_np.reshape(traj_np.shape[0], traj_np.shape[1], -1)
-
-    # Transpose for selecting frames instead of batches
-    traj = np.ascontiguousarray(np.transpose(traj_np, (1, 0, 2)))
-
-    # Transpose back to batches and take past and future motions for encoding
-    x = np.transpose(traj[:t_his], (1, 0, 2))
-
-    # Repeat the pose for the number of samples
-    x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
-
-    # Take a random sample from the latent space
-    y_mul_new = model.sample(x_mul)
-
-    # Merge the past motions c with the future predicted motions y
-    x_mul = x_mul.numpy()
-    y_mul_new = y_mul_new.numpy()
-    merged_frames = np.concatenate((x_mul, y_mul_new), axis=1)
-
-    if merged_frames.shape[0] > 1:
-        merged_frames = merged_frames.reshape(-1, sample_num, merged_frames.shape[-2], merged_frames.shape[-1])
-    else:
-        merged_frames = merged_frames[None, ...]
-
-    return merged_frames
 
 
 def reconstruct(traj_np, model, sample_num, num_seeds=1, concat_hist=True):
@@ -177,7 +147,7 @@ if __name__ == "__main__":
                 if args.action == 'reconstruct':
                     pred = reconstruct(data, model, args.num_samples)[0]
                 elif args.action == 'sampling':
-                    pred = sampling(data, model, args.num_samples)[0]
+                    pred = sampling(data, model, t_his, args.num_samples)[0]
                 pred = post_process(pred, data)
                 for i in range(1, pred.shape[0] + 1):
                     poses[f'{model.name}_{i}'] = pred[i-1]
