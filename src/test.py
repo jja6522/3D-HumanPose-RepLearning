@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="all", help="all, vae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=500, help="Numer of epochs for evaluation")
-    parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
+    parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs to load a model")
+    parser.add_argument("--num_samples", type=int, default=50, help="Number of samples to test (nk)")
     parser.add_argument('--num_seeds', type=int, default=1)
     parser.add_argument('--multimodal_threshold', type=float, default=0.5)
     args = parser.parse_args()

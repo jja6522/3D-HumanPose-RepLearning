@@ -30,7 +30,7 @@ RANDOM_SEED = 7 # For luck
 
 # Hyperparameters for training/testing
 t_his = 25 # number of past motions (c)
-t_pred = 100 # number of future motions (t)
+t_pred = 100 # number of future motions (x)
 lambda_j_ae = 1000  # AE Weighting factor for (c) between last past pose and first predicted pose
 lambda_j_vae = 1000 # VAE Weighting factor for (c) between last past pose and first predicted pose
 beta_vae = 0.1 # VAE Regularizer for KL Divergence; higher values aim at precision and lower values aim at diversity
