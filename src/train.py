@@ -83,6 +83,32 @@ def loss_function_vae(c, x, x_rec, mu, logvar):
     return total_loss, mean_mse, mean_mse_v, mean_kl_divergence
 
 
+@tf.function
+def train_step(model, x, c, optimizer,
+               total_loss_tracker, mse_loss_tracker, mse_v_loss_tracker, kl_loss_tracker):
+
+    with tf.GradientTape() as tape:
+        if model.name == 'ae':
+            z = model.encode(x, c)
+            x_rec = model.decode(z, c)
+            total_loss, mean_mse, mean_mse_v = loss_function_ae(c, x, x_rec)
+        elif model.name == 'vae':
+            mu, logvar = model.encode(x, c)
+            z = model.reparameterize(mu, logvar)
+            x_rec = model.decode(z, c)
+            total_loss, mean_mse, mean_mse_v, mean_kl = loss_function_vae(c, x, x_rec, mu, logvar)
+    gradients = tape.gradient(total_loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    # Update the losses
+    total_loss_tracker.update_state(total_loss)
+    mse_loss_tracker.update_state(mean_mse)
+    mse_v_loss_tracker.update_state(mean_mse_v)
+
+    if model.name == 'vae':
+        kl_loss_tracker.update_state(mean_kl)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -147,25 +173,12 @@ if __name__ == "__main__":
             c = np.transpose(traj[:t_his], (1, 0, 2))
             x = np.transpose(traj[t_his:], (1, 0, 2))
 
-            with tf.GradientTape() as tape:
-                if model.name == 'ae':
-                    z = model.encode(x, c)
-                    x_rec = model.decode(z, c)
-                    total_loss, mean_mse, mean_mse_v = loss_function_ae(c, x, x_rec)
-                elif model.name == 'vae':
-                    mu, logvar = model.encode(x, c)
-                    z = model.reparameterize(mu, logvar)
-                    x_rec = model.decode(z, c)
-                    total_loss, mean_mse, mean_mse_v, mean_kl = loss_function_vae(c, x, x_rec, mu, logvar)
-
-            gradients = tape.gradient(total_loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            total_loss_tracker.update_state(total_loss)
-            mse_loss_tracker.update_state(mean_mse)
-            mse_v_loss_tracker.update_state(mean_mse_v)
-
-            if model.name == 'vae':
-                kl_loss_tracker.update_state(mean_kl)
+            # Train step in a tf.function for speed
+            train_step(model, x, c, optimizer,
+                       total_loss_tracker,
+                       mse_loss_tracker,
+                       mse_v_loss_tracker,
+                       kl_loss_tracker)
 
         # Compute the losses at the end of each epoch
         elapsed_time = time.time() - start_time

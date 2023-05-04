@@ -30,7 +30,7 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
     wget http://visiondata.cis.upenn.edu/volumetric/h36m/S11.tar
     ```
 
-## Train the models
+## Train models
 
 - Simple Autoencoder: Default 500 epochs
 
@@ -41,6 +41,21 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
 - Variational Autoencoder: Default 500 epochs
     ```python
     python src/train.py --model vae
+    ```
+
+## Test models
+
+Defaults: all models, load model trained for 500 epochs, generate 50 samples(nk) for each sampling
+
+- Simple Autoencoder: Default 500 epochs for the model to load
+
+    ```python
+    python src/test.py --model ae
+    ```
+
+- Variational Autoencoder: Default 500 epochs for the model to load
+    ```python
+    python src/test.py --model vae
     ```
 
 ## Evaluate a pre-trained model
@@ -68,4 +83,3 @@ This is a reproducibility study for: [DLow: Diversifying Latent FLows](https://a
     ```python
     python src/eval.py --model vae --num_epochs 50 --action sampling
     ```
-

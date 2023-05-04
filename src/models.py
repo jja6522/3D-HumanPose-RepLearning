@@ -71,6 +71,7 @@ class AE(keras.Model):
         x_rec = self.dec_mlp(h_x)
         return x_rec
 
+    @tf.function
     def sample_prior(self, c):
         z_sample = tf.random.uniform(shape=[c.shape[0], self.latent_dim])
         x_rec = self.decode(z_sample, c)
@@ -171,6 +172,7 @@ class VAE(keras.Model):
         x_rec = self.dec_mlp(h_x)
         return x_rec
 
+    @tf.function
     def sample_prior(self, c):
         z_sample = tf.random.normal(shape=[c.shape[0], self.latent_dim])
         x_rec = self.decode(z_sample, c)
