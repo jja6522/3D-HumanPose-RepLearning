@@ -5,11 +5,8 @@ from utils.utils_3dhp import *
 import scipy.io as scio
 
 # change path to root directory of dataset
-data_path=r'D:\Documents\RIT Course Work\Spring 2023\Neural Computing\Project\dataset used'
+data_path = os.path.join('data')
 
-cam_set = [0, 1, 2, 4, 5, 6, 7, 8]
-joint_set = [4, 3, 5, 6, 7, 9, 10, 11, 14, 15, 16, 18, 19, 20, 23, 24, 25]
-# joint_set = [7, 5, 14, 15, 16, 9, 10, 11, 23, 24, 25, 18, 19, 20, 4, 3, 6]
 
 dic_seq={}
 

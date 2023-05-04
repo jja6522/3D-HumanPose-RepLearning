@@ -4,10 +4,6 @@ from utils.dataset import Dataset
 from utils.skeleton import Skeleton
 from scipy.spatial.transform import Rotation
 
-# The dataset contains 32 joints but only 16 are movable
-
-# compatible with H36 dataset
-joint_idx = [8, 6, 15, 16, 17, 10, 11, 12, 24, 25, 26, 19, 20, 21, 5, 4, 7]
 
 class Dataset3dhp(Dataset):
 
@@ -18,7 +14,7 @@ class Dataset3dhp(Dataset):
             self.traj_dim += 3
 
     def prepare_data(self):
-        self.data_file = r"D:\Documents\RIT Course Work\Spring 2023\Neural Computing\Project\3D-HumanPose-RepL-main\src\utils\data_3dhp.npz"
+        self.data_file = os.path.join('data', 'data_3dhp.npz')
         self.subjects_split = {'train': [1, 5, 6, 7, 8],
                                'test': [2, 3]}
         self.subjects = ['S%d' % x for x in self.subjects_split[self.mode]]
@@ -47,7 +43,7 @@ class Dataset3dhp(Dataset):
         for data_s in data_f.values():
             for action in data_s.keys():
                 # this is edited to keep the mpi_inf compatible
-                seq = data_s[action][600:725].reshape(1, 125, 28, 3)
+                seq = data_s[action].reshape(1, np.shape(data_s[action][:])[0], 28, 3)
                 # Take only the valid joints
                 joints_idx = [4, 3, 5, 6, 7, 9, 10, 11, 14, 15, 16, 18, 19, 20, 23, 24, 25]
                 sample = seq[:, :, joints_idx]
