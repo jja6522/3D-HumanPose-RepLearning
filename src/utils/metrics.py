@@ -16,27 +16,26 @@ def sampling(traj_np, model, t_his, sample_num, num_seeds=1, concat_hist=True):
     # Transpose for selecting frames instead of batches
     traj = np.ascontiguousarray(np.transpose(traj_np, (1, 0, 2)))
 
-    # Transpose back to batches and take past and future motions for encoding
-    x = np.transpose(traj[:t_his], (1, 0, 2))
+    # Transpose back to batches and take conditioned motions c
+    c = np.transpose(traj[:t_his], (1, 0, 2))
 
     # Repeat the pose for the number of samples
-    x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
+    c_mul = tf.repeat(c, repeats = [sample_num * num_seeds], axis=0)
 
     # Take a random sample from the latent space
-    y_mul_new = model.sample(x_mul)
-    y_mul_new = y_mul_new.numpy()
+    x_mul_new = model.sample_prior(c_mul)
+    x_mul_new = x_mul_new.numpy()
 
     # Merge the past motions c with the future predicted motions y
     if concat_hist:
-        x_mul = x_mul.numpy()
-        y_mul_new = np.concatenate((x_mul, y_mul_new), axis=1)
+        x_mul_new = np.concatenate((c_mul, x_mul_new), axis=1)
 
-    if y_mul_new.shape[0] > 1:
-        y_mul_new = y_mul_new.reshape(-1, sample_num, y_mul_new.shape[-2], y_mul_new.shape[-1])
+    if x_mul_new.shape[0] > 1:
+        x_mul_new = x_mul_new.reshape(-1, sample_num, x_mul_new.shape[-2], x_mul_new.shape[-1])
     else:
-        y_mul_new = y_mul_new[None, ...]
+        x_mul_new = x_mul_new[None, ...]
 
-    return y_mul_new
+    return x_mul_new
 
 
 """ Metrics taken from https://github.com/Khrylx/DLow/blob/master/motion_pred/eval.py"""

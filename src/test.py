@@ -21,7 +21,7 @@ from utils.metrics import sampling, compute_diversity, compute_ade, compute_fde,
 from models import AE, VAE
 
 ###########################################################
-# FIXME: Hack required to enable GPU operations by TF RNN
+# NOTE: Hack required to enable GPU operations by TF RNN
 ###########################################################
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -34,7 +34,7 @@ RANDOM_SEED = 7 # For luck
 
 # Hyperparameters for model evaluation
 t_his = 25 # number of past motions (c)
-t_pred = 100 # number of future motions (t)
+t_pred = 100 # number of future motions (x)
 
 
 def set_seed(seed):

@@ -19,7 +19,7 @@ from tqdm import tqdm, trange
 from models import AE, VAE
 
 ###########################################################
-# FIXME: Hack required to enable GPU operations by TF RNN
+# NOTE: Hack required to enable GPU operations by TF RNN
 ###########################################################
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -32,7 +32,7 @@ RANDOM_SEED = 7 # For luck
 
 # Hyperparameters for model evaluation
 t_his = 25 # number of past motions (c)
-t_pred = 100 # number of future motions (t)
+t_pred = 100 # number of future motions (x)
 
 
 def set_seed(seed):
@@ -54,25 +54,25 @@ def reconstruct(traj_np, model, sample_num, num_seeds=1, concat_hist=True):
     traj = np.ascontiguousarray(np.transpose(traj_np, (1, 0, 2)))
 
     # Transpose back to batches and take past and future motions for encoding
-    x = np.transpose(traj[:t_his], (1, 0, 2))
-    y = np.transpose(traj[t_his:], (1, 0, 2))
+    c = np.transpose(traj[:t_his], (1, 0, 2))
+    x = np.transpose(traj[t_his:], (1, 0, 2))
 
     # Repeat the pose for the number of samples
+    c_mul = tf.repeat(c, repeats = [sample_num * num_seeds], axis=0)
     x_mul = tf.repeat(x, repeats = [sample_num * num_seeds], axis=0)
-    y_mul = tf.repeat(y, repeats = [sample_num * num_seeds], axis=0)
 
     if model.name == 'ae':
-        z = model.encode(x_mul, y_mul)
-        y_rec_mul = model.decode(z)
+        z = model.encode(x_mul, c_mul)
+        x_rec_mul = model.decode(z, c_mul)
     elif model.name == 'vae':
-        mu, logvar = model.encode(x_mul, y_mul)
+        mu, logvar = model.encode(x_mul, c_mul)
         z = model.reparameterize(mu, logvar)
-        y_rec_mul = model.decode(z)
+        x_rec_mul = model.decode(z, c_mul)
 
-    # Merge the past motions c with the future predicted motions y
-    x_mul = x_mul.numpy()
-    y_rec_mul = y_rec_mul.numpy()
-    merged_frames = np.concatenate((x_mul, y_rec_mul), axis=1)
+    # Merge the past motions c with the future predicted motions x
+    c_mul = c_mul.numpy()
+    x_rec_mul = x_rec_mul.numpy()
+    merged_frames = np.concatenate((c_mul, x_rec_mul), axis=1)
 
     if merged_frames.shape[0] > 1:
         merged_frames = merged_frames.reshape(-1, sample_num, merged_frames.shape[-2], merged_frames.shape[-1])

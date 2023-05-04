@@ -17,7 +17,7 @@ from tqdm import tqdm, trange
 from models import AE, VAE
 
 ###########################################################
-# FIXME: Hack required to enable GPU operations by TF RNN
+# NOTE: Hack required to enable GPU operations by TF RNN
 ###########################################################
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -43,15 +43,15 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def loss_function_ae(x, y, y_rec):
+def loss_function_ae(c, x, x_rec):
 
     # MSE between the ground truth future and predicted poses
-    batch_mse = tf.reduce_sum(tf.pow(y_rec - y, 2), axis=[1, 2])
+    batch_mse = tf.reduce_sum(tf.pow(x_rec - x, 2), axis=[1, 2])
     mean_mse = tf.reduce_mean(batch_mse)
 
     # MSE between last pose and next predicted pose
-    last_gt_pose = x[:, -1, :]
-    first_pred_pose = y_rec[:, 0, :]
+    last_gt_pose = c[:, -1, :]
+    first_pred_pose = x_rec[:, 0, :]
 
     batch_mse_v = tf.reduce_sum(tf.pow(last_gt_pose - first_pred_pose, 2), axis=[1])
     mean_mse_v = tf.reduce_mean(batch_mse_v)
@@ -61,15 +61,15 @@ def loss_function_ae(x, y, y_rec):
     return total_loss, mean_mse, mean_mse_v
 
 
-def loss_function_vae(x, y, y_rec, mu, logvar):
+def loss_function_vae(c, x, x_rec, mu, logvar):
 
     # MSE between the ground truth future and predicted poses
-    batch_mse = tf.reduce_sum(tf.pow(y_rec - y, 2), axis=[1, 2])
+    batch_mse = tf.reduce_sum(tf.pow(x_rec - x, 2), axis=[1, 2])
     mean_mse = tf.reduce_mean(batch_mse)
 
     # MSE between last pose and next predicted pose
-    last_gt_pose = x[:, -1, :]
-    first_pred_pose = y_rec[:, 0, :]
+    last_gt_pose = c[:, -1, :]
+    first_pred_pose = x_rec[:, 0, :]
 
     batch_mse_v = tf.reduce_sum(tf.pow(last_gt_pose - first_pred_pose, 2), axis=[1])
     mean_mse_v = tf.reduce_mean(batch_mse_v)
@@ -144,19 +144,19 @@ if __name__ == "__main__":
             traj = np.ascontiguousarray(np.transpose(traj_np, (1, 0, 2)))
 
             # Transpose back to batches and take past and future motions for encoding
-            x = np.transpose(traj[:t_his], (1, 0, 2))
-            y = np.transpose(traj[t_his:], (1, 0, 2))
+            c = np.transpose(traj[:t_his], (1, 0, 2))
+            x = np.transpose(traj[t_his:], (1, 0, 2))
 
             with tf.GradientTape() as tape:
                 if model.name == 'ae':
-                    z = model.encode(x, y)
-                    y_rec = model.decode(z)
-                    total_loss, mean_mse, mean_mse_v = loss_function_ae(x, y, y_rec)
+                    z = model.encode(x, c)
+                    x_rec = model.decode(z, c)
+                    total_loss, mean_mse, mean_mse_v = loss_function_ae(c, x, x_rec)
                 elif model.name == 'vae':
-                    mu, logvar = model.encode(x, y)
+                    mu, logvar = model.encode(x, c)
                     z = model.reparameterize(mu, logvar)
-                    y_rec = model.decode(z)
-                    total_loss, mean_mse, mean_mse_v, mean_kl = loss_function_vae(x, y, y_rec, mu, logvar)
+                    x_rec = model.decode(z, c)
+                    total_loss, mean_mse, mean_mse_v, mean_kl = loss_function_vae(c, x, x_rec, mu, logvar)
 
             gradients = tape.gradient(total_loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))

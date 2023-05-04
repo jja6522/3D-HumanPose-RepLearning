@@ -23,80 +23,79 @@ class AE(keras.Model):
         self.latent_dim = latent_dim
         self.traj_dim = traj_dim
 
-        # Encoder RNN for past motions c
-        self.enc_rnn_past = models.Sequential([
+        # Encoder RNN for conditional past motions c
+        self.enc_rnn_c = models.Sequential([
             layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim))
-        ], name="enc_rnn_past")
+        ], name="enc_rnn_c")
 
-        # Encoder RNN for future motions x
-        self.enc_rnn_future = models.Sequential([
+        # Encoder RNN for predicted future motions x
+        self.enc_rnn_x = models.Sequential([
             layers.GRU(units=nh_rnn, input_shape=(t_pred, traj_dim))
-        ], name="enc_rnn_future")
+        ], name="enc_rnn_x")
 
         # Encoder MLP for both past and future motions
         self.enc_mlp = models.Sequential([
             layers.InputLayer(input_shape=(2 * nh_rnn)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
             layers.Dense(200, activation='tanh', name='enc_mlp2'),
-            # Simple latent layer
+            # Simple latent dimension
             layers.Dense(latent_dim, activation=None, name='latent')
         ], name="enc_mlp")
 
         # Decoder MLP for both past and future motions
         self.dec_mlp = models.Sequential([
-            layers.InputLayer(latent_dim),
+            layers.InputLayer(input_shape=(t_pred, latent_dim)),
             layers.Dense(200, activation='tanh', name='dec_mlp2'),
             layers.Dense(300, activation='tanh', name='dec_mlp1'),
+            layers.Dense(traj_dim)
         ], name="dec_mlp")
 
-        # Decoder RNN for future motions x
-        self.dec_rnn_future = models.Sequential([
-            layers.InputLayer(input_shape=(300)),
+        # Decoder RNN for predicted future motions x
+        self.dec_rnn_x = models.Sequential([
+            layers.InputLayer(input_shape=(latent_dim + nh_rnn)),
             layers.RepeatVector(t_pred),
             layers.GRU(units=nh_rnn, input_shape=(t_pred, traj_dim), return_sequences=True),
-            layers.Dense(traj_dim)
-        ], name="dec_rnn_future")
+        ], name="dec_rnn_x")
 
-    def encode(self, x, y):
-        h_x = self.enc_rnn_past(x)
-        h_y = self.enc_rnn_future(y)
-        h = tf.concat((h_x, h_y), axis=1)
+    def encode(self, x, c):
+        h_x = self.enc_rnn_x(x)
+        h_c = self.enc_rnn_c(c)
+        h = tf.concat((h_x, h_c), axis=1)
         z = self.enc_mlp(h)
         return z
 
-    def decode(self, z):
-        h_y = self.dec_mlp(z)
-        y_rec = self.dec_rnn_future(h_y)
-        return y_rec
+    def decode(self, z, c):
+        h_c = self.enc_rnn_c(c)
+        h = tf.concat((h_c, z), axis=1)
+        h_x = self.dec_rnn_x(h)
+        x_rec = self.dec_mlp(h_x)
+        return x_rec
 
-    # FIXME: If there a better way to sample from the latent space?
-    def sample(self, x):
-        z_sample = tf.random.normal(shape=[x.shape[0], self.latent_dim])
-        y = self.decode(z_sample)
-        z = self.encode(x, y)
-        y_new = self.decode(z)
-        return y_new
+    def sample_prior(self, c):
+        z_sample = tf.random.uniform(shape=[c.shape[0], self.latent_dim])
+        x_rec = self.decode(z_sample, c)
+        return x_rec
 
     def summary(self):
-        self.enc_rnn_past.summary()
-        self.enc_rnn_future.summary()
+        self.enc_rnn_c.summary()
+        self.enc_rnn_x.summary()
         self.enc_mlp.summary()
         self.dec_mlp.summary()
-        self.dec_rnn_future.summary()
+        self.dec_rnn_x.summary()
 
     def save_model(self, num_epochs):
-        self.enc_rnn_past.save(f"models/ae-enc_rnn_past-{num_epochs}.model")
-        self.enc_rnn_future.save(f"models/ae-enc_rnn_future-{num_epochs}.model")
+        self.enc_rnn_c.save(f"models/ae-enc_rnn_c-{num_epochs}.model")
+        self.enc_rnn_x.save(f"models/ae-enc_rnn_x-{num_epochs}.model")
         self.enc_mlp.save(f"models/ae-enc_mlp-{num_epochs}.model")
         self.dec_mlp.save(f"models/ae-dec_mlp-{num_epochs}.model")
-        self.dec_rnn_future.save(f"models/ae-dec_rnn_future-{num_epochs}.model")
+        self.dec_rnn_x.save(f"models/ae-dec_rnn_x-{num_epochs}.model")
 
     def load_model(self, num_epochs):
-        self.enc_rnn_past = models.load_model(f"models/ae-enc_rnn_past-{num_epochs}.model")
-        self.enc_rnn_future = models.load_model(f"models/ae-enc_rnn_future-{num_epochs}.model")
+        self.enc_rnn_c = models.load_model(f"models/ae-enc_rnn_c-{num_epochs}.model")
+        self.enc_rnn_x = models.load_model(f"models/ae-enc_rnn_x-{num_epochs}.model")
         self.enc_mlp = models.load_model(f"models/ae-enc_mlp-{num_epochs}.model")
         self.dec_mlp = models.load_model(f"models/ae-dec_mlp-{num_epochs}.model")
-        self.dec_rnn_future = models.load_model(f"models/ae-dec_rnn_future-{num_epochs}.model")
+        self.dec_rnn_x = models.load_model(f"models/ae-dec_rnn_x-{num_epochs}.model")
 
 
 class VAE(keras.Model):
@@ -118,46 +117,46 @@ class VAE(keras.Model):
         self.latent_dim = latent_dim
         self.traj_dim = traj_dim
 
-        # Encoder RNN for past motions c
-        self.enc_rnn_past = models.Sequential([
+        # Encoder RNN for conditional past motions c
+        self.enc_rnn_c = models.Sequential([
             layers.GRU(units=nh_rnn, input_shape=(t_his, traj_dim))
-        ], name="enc_rnn_past")
+        ], name="enc_rnn_c")
 
-        # Encoder RNN for future motions x
-        self.enc_rnn_future = models.Sequential([
+        # Encoder RNN for predicted future motions x
+        self.enc_rnn_x = models.Sequential([
             layers.GRU(units=nh_rnn, input_shape=(t_pred, traj_dim))
-        ], name="enc_rnn_future")
+        ], name="enc_rnn_x")
 
         # Encoder MLP for both past and future motions
         self.enc_mlp = models.Sequential([
             layers.InputLayer(input_shape=(2 * nh_rnn)),
             layers.Dense(300, activation='tanh', name='enc_mlp1'),
             layers.Dense(200, activation='tanh', name='enc_mlp2'),
-            # FIXME: Double check if a multivariate gaussian per joint is required
             # latent layer for mu and sigma
             layers.Dense(latent_dim + latent_dim, activation=None, name='latent')
         ], name="enc_mlp")
 
         # Decoder MLP for both past and future motions
         self.dec_mlp = models.Sequential([
-            layers.InputLayer(latent_dim),
+            layers.InputLayer(input_shape=(t_pred, latent_dim)),
             layers.Dense(200, activation='tanh', name='dec_mlp2'),
             layers.Dense(300, activation='tanh', name='dec_mlp1'),
+            layers.Dense(traj_dim)
         ], name="dec_mlp")
 
-        # Decoder RNN for future motions x
-        self.dec_rnn_future = models.Sequential([
-            layers.InputLayer(input_shape=(300)),
+        # Decoder RNN for predicted future motions x
+        self.dec_rnn_x = models.Sequential([
+            layers.InputLayer(input_shape=(latent_dim + nh_rnn)),
             layers.RepeatVector(t_pred),
             layers.GRU(units=nh_rnn, input_shape=(t_pred, traj_dim), return_sequences=True),
-            layers.Dense(traj_dim)
-        ], name="dec_rnn_future")
+        ], name="dec_rnn_x")
 
-    def encode(self, x, y):
-        h_x = self.enc_rnn_past(x)
-        h_y = self.enc_rnn_future(y)
-        h = tf.concat((h_x, h_y), axis=1)
-        mu, logvar = tf.split(self.enc_mlp(h), num_or_size_splits=2, axis=1)
+    def encode(self, x, c):
+        h_x = self.enc_rnn_x(x)
+        h_c = self.enc_rnn_c(c)
+        h = tf.concat((h_x, h_c), axis=1)
+        z_dist = self.enc_mlp(h)
+        mu, logvar = tf.split(z_dist, num_or_size_splits=2, axis=1)
         return mu, logvar
 
     def reparameterize(self, mu, logvar):
@@ -165,37 +164,36 @@ class VAE(keras.Model):
         eps = tf.random.normal(shape=mu.shape)
         return mu + eps * std
 
-    def decode(self, z):
-        h_y = self.dec_mlp(z)
-        y_rec = self.dec_rnn_future(h_y)
-        return y_rec
+    def decode(self, z, c):
+        h_c = self.enc_rnn_c(c)
+        h = tf.concat((h_c, z), axis=1)
+        h_x = self.dec_rnn_x(h)
+        x_rec = self.dec_mlp(h_x)
+        return x_rec
 
-    def sample(self, x):
-        z_sample = tf.random.normal(shape=[x.shape[0], self.latent_dim])
-        y = self.decode(z_sample)
-        mu, logvar = self.encode(x, y)
-        z = self.reparameterize(mu, logvar)
-        y_new = self.decode(z)
-        return y_new
+    def sample_prior(self, c):
+        z_sample = tf.random.normal(shape=[c.shape[0], self.latent_dim])
+        x_rec = self.decode(z_sample, c)
+        return x_rec
 
     def summary(self):
-        self.enc_rnn_past.summary()
-        self.enc_rnn_future.summary()
+        self.enc_rnn_c.summary()
+        self.enc_rnn_x.summary()
         self.enc_mlp.summary()
         self.dec_mlp.summary()
-        self.dec_rnn_future.summary()
+        self.dec_rnn_x.summary()
 
     def save_model(self, num_epochs):
-        self.enc_rnn_past.save(f"models/vae-enc_rnn_past-{num_epochs}.model")
-        self.enc_rnn_future.save(f"models/vae-enc_rnn_future-{num_epochs}.model")
+        self.enc_rnn_c.save(f"models/vae-enc_rnn_c-{num_epochs}.model")
+        self.enc_rnn_x.save(f"models/vae-enc_rnn_x-{num_epochs}.model")
         self.enc_mlp.save(f"models/vae-enc_mlp-{num_epochs}.model")
         self.dec_mlp.save(f"models/vae-dec_mlp-{num_epochs}.model")
-        self.dec_rnn_future.save(f"models/vae-dec_rnn_future-{num_epochs}.model")
+        self.dec_rnn_x.save(f"models/vae-dec_rnn_x-{num_epochs}.model")
 
     def load_model(self, num_epochs):
-        self.enc_rnn_past = models.load_model(f"models/vae-enc_rnn_past-{num_epochs}.model")
-        self.enc_rnn_future = models.load_model(f"models/vae-enc_rnn_future-{num_epochs}.model")
+        self.enc_rnn_c = models.load_model(f"models/vae-enc_rnn_c-{num_epochs}.model")
+        self.enc_rnn_x = models.load_model(f"models/vae-enc_rnn_x-{num_epochs}.model")
         self.enc_mlp = models.load_model(f"models/vae-enc_mlp-{num_epochs}.model")
         self.dec_mlp = models.load_model(f"models/vae-dec_mlp-{num_epochs}.model")
-        self.dec_rnn_future = models.load_model(f"models/vae-dec_rnn_future-{num_epochs}.model")
+        self.dec_rnn_x = models.load_model(f"models/vae-dec_rnn_x-{num_epochs}.model")
 
