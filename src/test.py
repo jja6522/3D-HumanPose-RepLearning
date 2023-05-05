@@ -68,7 +68,7 @@ def get_multimodal_gt(dataset, t_his, threshold):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="all", help="all, vae, vae, dlow")
+    parser.add_argument("--model", default="all", help="all, ae, vae, dlow")
     parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs to load a model")
     parser.add_argument("--num_samples", type=int, default=50, help="Number of samples to test (nk)")
     parser.add_argument('--num_seeds', type=int, default=1)
