@@ -14,7 +14,7 @@ import time
 import argparse
 from tqdm import tqdm, trange
 
-from models import AE, VAE
+from models import AE, VAE, DLow
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -38,6 +38,13 @@ lambda_v_ae = 1000  # AE Weighting factor for (c) between last past pose and fir
 # VAE Hyperparameters
 lambda_v_vae = 1000 # VAE Weighting factor for (c) between last past pose and first predicted pose
 beta_vae = 0.1 # VAE Regularizer for KL Divergence; higher values aim at precision and lower values aim at diversity
+
+# DLow Hyperparameters
+dlow_samples = 10 # number of DLow samples for epsilon (nk)
+lambda_kl = 1.0
+lambda_recon = 2.0
+lambda_j = 25
+d_scale = 100
 
 
 def set_seed(seed):
@@ -87,6 +94,28 @@ def loss_function_vae(c, x, x_rec, mu, logvar):
     return total_loss, mean_mse, mean_mse_v, mean_kld
 
 
+def loss_function_dlow(x, x_new, a, b):
+
+    # KLD for the sampling distribution of the affine transformations
+    var = tf.pow(a, 2)
+    batch_kld = -0.5 * tf.reduce_sum(1 + tf.math.log(var) - tf.square(b) - var, axis=[1, 2])
+    dlow_kld = tf.reduce_mean(batch_kld)
+
+    # Reconstruction loss
+    batch_recon_loss = tf.reduce_sum(tf.pow(x_new - x, 2), axis=[2, 3])
+    recon_loss = tf.reduce_mean(tf.reduce_min(batch_recon_loss, axis=[1]))
+
+    # Joint loss
+    # TODO: Double check the calculations for the pairwise euclidean distance
+    dist = tf.math.reduce_euclidean_norm(x_new, axis=[1,2,3])
+    scaled_dist = tf.exp(-dist / d_scale)
+    joint_loss = tf.reduce_mean(scaled_dist)
+
+    total_loss = dlow_kld * lambda_kl + joint_loss * lambda_j + recon_loss * lambda_recon
+
+    return total_loss, dlow_kld, joint_loss, recon_loss
+
+
 @tf.function
 def train_step_ae(model, x, c, optimizer,
                   total_loss_tracker, mse_loss_tracker, mse_v_loss_tracker):
@@ -127,6 +156,43 @@ def train_step_vae(model, x, c, optimizer,
     kld_loss_tracker.update_state(mean_kld)
 
 
+@tf.function
+def train_step_dlow(model, cvae, x, c, optimizer,
+                    dlow_loss_tracker, dlow_kld_tracker, dlow_joint_tracker, dlow_recon_tracker):
+
+    with tf.GradientTape() as tape:
+
+        # Use dlow encoder to get the affine transformation params
+        z, a, b = model.encode(c)
+        z_mul = tf.reshape(z, [z.shape[0] * z.shape[1], z.shape[2]])
+
+        # Repeat the conditional input c for k samples
+        c_mul = tf.repeat(c, repeats = [dlow_samples], axis=1)
+        c_mul = tf.reshape(c_mul, [c.shape[0] * dlow_samples, c.shape[1], c.shape[2]])
+
+        # Decode the generated samples using the cvae decoder
+        x_new = cvae.decode(z_mul, c_mul)
+
+        # Repeat and reshape the original x
+        x = tf.reshape(x, [x.shape[0], 1, x.shape[1], x.shape[2]])
+        x = tf.repeat(x, repeats = [dlow_samples], axis=1)
+
+        # Reshape the generated x_new
+        x_new = tf.reshape(x_new, [x.shape[0], dlow_samples, x_new.shape[1], x_new.shape[2]])
+
+        total_loss, dlow_kld, joint_loss, recon_loss = loss_function_dlow(x, x_new, a, b)
+
+    # Backpropagation to optimize the total loss
+    gradients = tape.gradient(total_loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    # Update the losses
+    dlow_loss_tracker.update_state(total_loss)
+    dlow_kld_tracker.update_state(dlow_kld)
+    dlow_joint_tracker.update_state(joint_loss)
+    dlow_recon_tracker.update_state(recon_loss)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -134,7 +200,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs for testing")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="Number of samples per epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
-    parser.add_argument("--lrate", type=int, default=1.e-3, help="Learning rate")
     args = parser.parse_args()
 
     # Set the random sets for reproducibility
@@ -154,11 +219,22 @@ if __name__ == "__main__":
                   "vae": VAE(name='vae',
                              traj_dim = train_ds.traj_dim,
                              t_his = t_his,
-                             t_pred = t_pred)
+                             t_pred = t_pred),
+                  "dlow": DLow(name='dlow',
+                             traj_dim = train_ds.traj_dim,
+                             t_his = t_his,
+                             t_pred = t_pred,
+                             dlow_samples = dlow_samples)
                   }
 
     if args.model in model_dict:
         model = model_dict[args.model]
+
+    # Training Dlow requires a pre-trained VAE
+    if args.model == 'dlow':
+        print("INFO: Loading pre-trained VAE for DLow", type(model_dict["vae"]))
+        model_dict["vae"].load_model(args.num_epochs)
+        model_dict["vae"].summary()
 
     #######################################
     # Model training
@@ -167,7 +243,8 @@ if __name__ == "__main__":
     model.summary()
 
     # Loss function, metrics and optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args.lrate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-3)
+    dlow_optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-4)
 
     # Loss metric trackers for training the AE
     ae_loss_tracker = tf.keras.metrics.Mean()
@@ -179,6 +256,12 @@ if __name__ == "__main__":
     vae_mse_tracker = tf.keras.metrics.Mean()
     vae_mse_v_tracker = tf.keras.metrics.Mean()
     vae_kld_tracker = tf.keras.metrics.Mean()
+
+    # Loss metric trackers for training DLow
+    dlow_loss_tracker = tf.keras.metrics.Mean()
+    dlow_kld_tracker = tf.keras.metrics.Mean()
+    dlow_joint_tracker = tf.keras.metrics.Mean()
+    dlow_recon_tracker = tf.keras.metrics.Mean()
 
     for epoch in tqdm(range(0, args.num_epochs)):
         start_time = time.time()
@@ -212,16 +295,30 @@ if __name__ == "__main__":
                                vae_mse_v_tracker,
                                vae_kld_tracker)
 
+            # Training dlow requires a pre-trained cvae decoder
+            elif model.name == 'dlow':
+                train_step_dlow(model, model_dict["vae"], x, c, dlow_optimizer,
+                                dlow_loss_tracker,
+                                dlow_kld_tracker,
+                                dlow_joint_tracker,
+                                dlow_recon_tracker)
+
         # Compute the losses at the end of each epoch
         elapsed_time = time.time() - start_time
         if model.name == 'ae':
             tqdm.write("====> [%s] Epoch %i(%.2fs)\tLoss: %g\tMSE: %g\tMSE_v: %g" %
                         (model.name, epoch, elapsed_time,
                          ae_loss_tracker.result(), ae_mse_tracker.result(), ae_mse_v_tracker.result()))
+
         elif model.name == 'vae':
             tqdm.write("====> [%s] Epoch %i(%.2fs)\tLoss: %g\tMSE: %g\tMSE_v: %g\tKLD: %g" %
                         (model.name, epoch, elapsed_time,
                          vae_loss_tracker.result(), vae_mse_tracker.result(), vae_mse_v_tracker.result(), vae_kld_tracker.result()))
+
+        elif model.name == 'dlow':
+            tqdm.write("====> [%s] Epoch %i(%.2fs)\tLoss: %g\tKLD: %g\tJL: %g\tRECON: %g" %
+                        (model.name, epoch, elapsed_time,
+                         dlow_loss_tracker.result(), dlow_kld_tracker.result(), dlow_joint_tracker.result(), dlow_recon_tracker.result()))
 
     # Save the model to disk
     model.save_model(args.num_epochs)
