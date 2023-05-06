@@ -40,7 +40,6 @@ lambda_v_vae = 1000 # VAE Weighting factor for (c) between last past pose and fi
 beta_vae = 0.1 # VAE Regularizer for KL Divergence; higher values aim at precision and lower values aim at diversity
 
 # DLow Hyperparameters
-dlow_samples = 10 # number of DLow samples for epsilon (nk)
 lambda_kl = 1.0
 lambda_recon = 2.0
 lambda_j = 25
@@ -157,7 +156,7 @@ def train_step_vae(model, x, c, optimizer,
 
 
 @tf.function
-def train_step_dlow(model, cvae, x, c, optimizer,
+def train_step_dlow(model, cvae, x, c, optimizer, dlow_samples,
                     dlow_loss_tracker, dlow_kld_tracker, dlow_joint_tracker, dlow_recon_tracker):
 
     with tf.GradientTape() as tape:
@@ -197,9 +196,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="vae", help="ae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs for testing")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs for training")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="Number of samples per epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
+    parser.add_argument("--dlow_samples", type=int, default=10, help="Number of DLow samples for epsilon (nk)")
     args = parser.parse_args()
 
     # Set the random sets for reproducibility
@@ -224,7 +224,7 @@ if __name__ == "__main__":
                              traj_dim = train_ds.traj_dim,
                              t_his = t_his,
                              t_pred = t_pred,
-                             dlow_samples = dlow_samples)
+                             dlow_samples = args.dlow_samples)
                   }
 
     if args.model in model_dict:
@@ -297,7 +297,8 @@ if __name__ == "__main__":
 
             # Training dlow requires a pre-trained cvae decoder
             elif model.name == 'dlow':
-                train_step_dlow(model, model_dict["vae"], x, c, dlow_optimizer,
+                train_step_dlow(model, model_dict["vae"],
+                                x, c, dlow_optimizer, args.dlow_samples,
                                 dlow_loss_tracker,
                                 dlow_kld_tracker,
                                 dlow_joint_tracker,
@@ -321,5 +322,8 @@ if __name__ == "__main__":
                          dlow_loss_tracker.result(), dlow_kld_tracker.result(), dlow_joint_tracker.result(), dlow_recon_tracker.result()))
 
     # Save the model to disk
-    model.save_model(args.num_epochs)
+    if model.name == 'ae' or model.name == 'vae':
+        model.save_model(args.num_epochs)
+    elif model.name == 'dlow':
+        model.save_model(args.num_epochs, args.dlow_samples)
 

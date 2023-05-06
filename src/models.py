@@ -278,15 +278,16 @@ class DLow(keras.Model):
         self.rotation_scaling.summary()
         self.translation.summary()
 
-    def save_model(self, num_epochs):
-        self.enc_rnn_c.save(f"models/dlow{self.dlow_samples}-enc_rnn_c-{num_epochs}.model")
-        self.enc_mlp.save(f"models/dlow{self.dlow_samples}-enc_mlp-{num_epochs}.model")
-        self.rotation_scaling.save(f"models/dlow{self.dlow_samples}-rotation_scaling-{num_epochs}.model")
-        self.translation.save(f"models/dlow{self.dlow_samples}-translation-{num_epochs}.model")
+    def save_model(self, num_epochs, dlow_samples):
+        self.enc_rnn_c.save(f"models/dlow{dlow_samples}-enc_rnn_c-{num_epochs}.model")
+        self.enc_mlp.save(f"models/dlow{dlow_samples}-enc_mlp-{num_epochs}.model")
+        self.rotation_scaling.save(f"models/dlow{dlow_samples}-rotation_scaling-{num_epochs}.model")
+        self.translation.save(f"models/dlow{dlow_samples}-translation-{num_epochs}.model")
 
-    def load_model(self, num_epochs):
-        self.enc_rnn_c = models.load_model(f"models/dlow{self.dlow_samples}-enc_rnn_c-{num_epochs}.model")
-        self.enc_mlp = models.load_model(f"models/dlow{self.dlow_samples}-enc_mlp-{num_epochs}.model")
-        self.rotation_scaling = models.load_model(f"models/dlow{self.dlow_samples}-rotation_scaling-{num_epochs}.model")
-        self.translation = models.load_model(f"models/dlow{self.dlow_samples}-translation-{num_epochs}.model")
+    def load_model(self, num_epochs, dlow_samples):
+        self.dlow_samples = dlow_samples
+        self.enc_rnn_c = models.load_model(f"models/dlow{dlow_samples}-enc_rnn_c-{num_epochs}.model")
+        self.enc_mlp = models.load_model(f"models/dlow{dlow_samples}-enc_mlp-{num_epochs}.model")
+        self.rotation_scaling = models.load_model(f"models/dlow{dlow_samples}-rotation_scaling-{num_epochs}.model")
+        self.translation = models.load_model(f"models/dlow{dlow_samples}-translation-{num_epochs}.model")
 
