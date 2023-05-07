@@ -37,7 +37,7 @@ This project was implemented using two datasets:
 
 - All models: Default loads all models (ae, vae, dlow) pre-trained for 50 epochs and 10 dlow_samples
     ```python
-    python src/test.py --model vae
+    python src/test.py
     ```
 
 - Variational Autoencoder: Default loads model pre-trained for 50 epochs
@@ -58,7 +58,7 @@ This project was implemented using two datasets:
     python src/eval.py --action sampling
     ```
 
-- Reconstruction: Loads only autoencoder and VAE pre-trained for 50 epochs
+- Reconstruction: Loads only autoencoder and VAE pre-trained for 50 epochs (DLow does not do reconstruction)
 
     ```python
     python src/eval.py --action reconstruct
