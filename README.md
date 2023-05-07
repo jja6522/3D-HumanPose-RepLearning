@@ -23,49 +23,44 @@ This project was implemented using two datasets:
 
 ## Train models
 
-- Simple Autoencoder: Default 500 epochs
-
-    ```python
-    python src/train.py --model ae
-    ```
-
-- Variational Autoencoder: Default 500 epochs
+- Variational Autoencoder: Default 50 epochs
     ```python
     python src/train.py --model vae
     ```
 
-## Test models
-
-Defaults: all models, load model trained for 500 epochs, generate 50 samples(nk) for each sampling
-
-- Simple Autoencoder: Default 500 epochs for the model to load
-
+- DLow Sampling: Default 50 epochs, 10 dlow_samples
     ```python
-    python src/test.py --model ae
+    python src/train.py --model dlow
     ```
 
-- Variational Autoencoder: Default 500 epochs for the model to load
+## Test models quantitatively
+
+- All models: Default loads all models (ae, vae, dlow) pre-trained for 50 epochs and 10 dlow_samples
     ```python
     python src/test.py --model vae
     ```
 
-## Evaluate a pre-trained model
+- Variational Autoencoder: Default loads model pre-trained for 50 epochs
+    ```python
+    python src/test.py --model vae
+    ```
 
-- Sampling: All models trained for 500 epochs (Autoencoder, Variational Autoencoder)
+- DLow Sampling: Default loads model pre-trained for 50 epochs and 10 dlow_samples
+    ```python
+    python src/test.py --model dlow
+    ```
+
+## Evaluate models qualitatively
+
+- Sampling: Default loads all models (ae, vae, dlow) pre-trained for 50 epochs and 10 dlow_samples
 
     ```python
     python src/eval.py --action sampling
     ```
 
-- Reconstruction: All models trained for 500 epochs (Autoencoder, Variational Autoencoder)
+- Reconstruction: Loads only autoencoder and VAE pre-trained for 50 epochs
 
     ```python
     python src/eval.py --action reconstruct
-    ```
-
-- Sampling: Variational Autoencoder trained for 50 epochs
-
-    ```python
-    python src/eval.py --model vae --num_epochs 50 --action sampling
     ```
 

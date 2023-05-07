@@ -158,7 +158,12 @@ if __name__ == "__main__":
             for model in eval_models:
 
                 if args.action == 'reconstruct':
-                    pred = reconstruct(data, model, args.num_samples)[0]
+
+                    if model.name == 'ae' or model.name == 'vae':
+                        pred = reconstruct(data, model, args.vis_samples)[0]
+                    else:
+                        print("Reconstruction is not supported for DLow sampling model")
+                        continue
 
                 elif args.action == 'sampling':
 
