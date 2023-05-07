@@ -40,10 +40,10 @@ lambda_v_vae = 1000 # VAE Weighting factor for (c) between last past pose and fi
 beta_vae = 0.1 # VAE Regularizer for KL Divergence; higher values aim at precision and lower values aim at diversity
 
 # DLow Hyperparameters
-lambda_kl = 1.0
-lambda_recon = 2.0
-lambda_j = 25
-d_scale = 100
+lambda_kl = 1.0 # Dlow kl divergence constant
+lambda_j = 25 # Dlow diversifying constant
+lambda_recon = 2.0 # Dlow reconstruction constant
+d_scale = 100 # Dlow scaling term for RBF kernel
 
 
 def set_seed(seed):

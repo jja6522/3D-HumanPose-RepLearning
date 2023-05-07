@@ -17,8 +17,8 @@ from scipy.spatial.distance import pdist
 from scipy.spatial.distance import pdist, squareform
 
 from utils.dataset_h36m import DatasetH36M
-from utils.metrics import sampling, compute_diversity, compute_ade, compute_fde, compute_mmade, compute_mmfde, AverageMeter
-from models import AE, VAE
+from utils.metrics import random_sampling, dlow_sampling, compute_diversity, compute_ade, compute_fde, compute_mmade, compute_mmfde, AverageMeter
+from models import AE, VAE, DLow
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -32,7 +32,7 @@ for gpu in gpus:
 ###########################################################
 RANDOM_SEED = 7 # For luck
 
-# Hyperparameters for model evaluation
+# General Hyperparameters for training/testing
 t_his = 25 # number of past motions (c)
 t_pred = 100 # number of future motions (x)
 
@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="all", help="all, ae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs to load a model")
-    parser.add_argument("--num_samples", type=int, default=50, help="Number of samples to test (nk)")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs to load a model")
+    parser.add_argument("--dlow_samples", type=int, default=10, help="Number of DLow samples for epsilon (nk)")
     parser.add_argument('--num_seeds', type=int, default=1)
     parser.add_argument('--multimodal_threshold', type=float, default=0.5)
     args = parser.parse_args()
@@ -87,7 +87,8 @@ if __name__ == "__main__":
     # Define the available models
     model_dict = {
                   "ae": AE(name='ae'),
-                  "vae": VAE(name='vae')
+                  "vae": VAE(name='vae'),
+                  "dlow": DLow(name='dlow')
                   }
 
     #######################################
@@ -101,7 +102,16 @@ if __name__ == "__main__":
         print(eval_models)
 
     for model in eval_models:
-        model.load_model(args.num_epochs)
+        # Training Dlow requires a pre-trained VAE and dlow_samples
+        if model.name == 'dlow':
+            model.load_model(args.num_epochs, args.dlow_samples)
+            print(">>>>> Dlow was trained with dlow_samples =", model.dlow_samples)
+            print(">>>>> Loading pre-trained VAE for DLow", type(model_dict["vae"]))
+            model_dict["vae"].load_model(args.num_epochs)
+            model_dict["vae"].summary()
+        # AE and VAE need only epochs for a pre-trained model
+        else:
+            model.load_model(args.num_epochs)
         model.summary()
 
     #######################################
@@ -120,7 +130,13 @@ if __name__ == "__main__":
         gt_multi = traj_gt_arr[i]
 
         for model in eval_models:
-            pred = sampling(data, model, t_his, args.num_samples, args.num_seeds, concat_hist=False)
+
+            if model.name == 'ae' or model.name == 'vae':
+                pred = random_sampling(data, model, t_his, args.dlow_samples, args.num_seeds, concat_hist=False)
+
+            # Sampling dlow requires the cvae decoder
+            elif model.name == 'dlow':
+                pred = dlow_sampling(data, model, model_dict['vae'], t_his, args.dlow_samples, args.num_seeds, concat_hist=False)
 
             for stats in stats_names:
                 val = 0
@@ -134,7 +150,7 @@ if __name__ == "__main__":
             print(str_stats)
 
     # Save results for all metrics to a file
-    results_file = 'results/stats_%s.csv' % (args.num_seeds)
+    results_file = 'results/stats_%s_nk%s_epochs%s.csv' % (args.model, str(args.dlow_samples), str(args.num_epochs))
     os.makedirs(os.path.dirname(results_file), exist_ok=True)
     with open(results_file, 'w') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=['Metric'] + list(model_dict.keys()))

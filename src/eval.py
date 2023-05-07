@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 
 from utils.dataset_h36m import DatasetH36M
 from utils.visualization import render_animation
-from utils.metrics import sampling
+from utils.metrics import random_sampling, dlow_sampling
 
 import time
 import argparse
 from tqdm import tqdm, trange
 
-from models import AE, VAE
+from models import AE, VAE, DLow
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -102,8 +102,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="all", help="all, ae, vae, dlow")
-    parser.add_argument("--num_epochs", type=int, default=500, help="Number of epochs to load a model")
-    parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to evaluate")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs to load a model")
+    parser.add_argument("--dlow_samples", type=int, default=10, help="Number of DLow samples for epsilon (nk)")
+    parser.add_argument("--vis_samples", type=int, default=5, help="Number of samples to visualize")
     parser.add_argument("--action", default="sampling", help="reconstruct, sampling")
     args = parser.parse_args()
 
@@ -118,7 +119,8 @@ if __name__ == "__main__":
     # Define the available models
     model_dict = {
                   "ae": AE(name='ae'),
-                  "vae": VAE(name='vae')
+                  "vae": VAE(name='vae'),
+                  "dlow": DLow(name='dlow')
                   }
 
     #######################################
@@ -132,8 +134,18 @@ if __name__ == "__main__":
         print(eval_models)
 
     for model in eval_models:
-        model.load_model(args.num_epochs)
+        # Training Dlow requires a pre-trained VAE and dlow_samples
+        if model.name == 'dlow':
+            model.load_model(args.num_epochs, args.dlow_samples)
+            print(">>>>> Dlow was trained with dlow_samples =", model.dlow_samples)
+            print(">>>>> Loading pre-trained VAE for DLow", type(model_dict["vae"]))
+            model_dict["vae"].load_model(args.num_epochs)
+            model_dict["vae"].summary()
+        # AE and VAE need only epochs for a pre-trained model
+        else:
+            model.load_model(args.num_epochs)
         model.summary()
+
 
     def pose_generator():
         while True:
@@ -144,10 +156,19 @@ if __name__ == "__main__":
             poses = {'context': gt, 'gt': gt}
             # models
             for model in eval_models:
+
                 if args.action == 'reconstruct':
                     pred = reconstruct(data, model, args.num_samples)[0]
+
                 elif args.action == 'sampling':
-                    pred = sampling(data, model, t_his, args.num_samples)[0]
+
+                    if model.name == 'ae' or model.name == 'vae':
+                        pred = random_sampling(data, model, t_his, args.vis_samples)[0]
+
+                    # Sampling dlow requires the cvae decoder
+                    elif model.name == 'dlow':
+                        pred = dlow_sampling(data, model, model_dict["vae"], t_his, args.vis_samples)[0]
+
                 pred = post_process(pred, data)
                 for i in range(1, pred.shape[0] + 1):
                     poses[f'{model.name}_{i}'] = pred[i-1]

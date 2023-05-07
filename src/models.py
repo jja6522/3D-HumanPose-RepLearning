@@ -268,6 +268,7 @@ class DLow(keras.Model):
         # Return latent codes zk and affine mapping functions
         return z, a, b
 
+    @tf.function
     def sample_prior(self, c):
         z_new, _, _ = self.encode(c)
         return z_new
