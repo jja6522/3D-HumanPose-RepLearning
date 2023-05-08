@@ -108,16 +108,23 @@ def loss_function_dlow(x, x_new, a, b):
     # Pairwise euclidean distance between all generated samples k
     lhs = tf.expand_dims(x_new, 1)
     rhs = tf.expand_dims(x_new, 2)
-    dist = tf.square(tf.reduce_sum(lhs - rhs, axis=-1))
+
+    # Squared euclidean distance matrix between all K
+    edist = tf.reduce_sum(tf.square(lhs - rhs), axis=[2, 3])
 
     # Energy based formulation with a scaled constant
-    scaled_dist = tf.exp(-dist / d_scale)
+    scaled_dist = tf.exp(-edist / d_scale)
 
-    # Take only the upper diagonal for the pairwise distances
+    # Take only the upper and lower diagonal pairwise distances
     upper_diag = tf.linalg.band_part(scaled_dist, 0, -1)
+    lower_diag = tf.linalg.band_part(scaled_dist, -1, 0)
+
+    # Divide the sum of the pairwise distances by K * (K-1)
+    K = x_new.shape[1]
+    batch_pairwise_dist = tf.reduce_sum(upper_diag + lower_diag, axis=[1, 2]) / (K * (K - 1))
 
     # Mean of all the distances in the batch and samples
-    joint_loss = tf.reduce_mean(upper_diag)
+    joint_loss = tf.reduce_mean(batch_pairwise_dist)
 
     # Total loss for DLow
     total_loss = dlow_kld * lambda_kl + joint_loss * lambda_j + recon_loss * lambda_recon
