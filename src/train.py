@@ -97,19 +97,29 @@ def loss_function_dlow(x, x_new, a, b):
 
     # KLD for the sampling distribution of the affine transformations
     var = tf.pow(a, 2)
-    batch_kld = -0.5 * tf.reduce_sum(1 + tf.math.log(var) - tf.square(b) - var, axis=[1, 2])
+    batch_kld = -0.5 * tf.reduce_sum(1 + tf.math.log(var) - tf.square(b) - var, axis=2)
     dlow_kld = tf.reduce_mean(batch_kld)
 
-    # Reconstruction loss
+    # Reconstruction loss formula
     batch_recon_loss = tf.reduce_sum(tf.pow(x_new - x, 2), axis=[2, 3])
     recon_loss = tf.reduce_mean(tf.reduce_min(batch_recon_loss, axis=[1]))
 
-    # Joint loss
-    # TODO: Double check the calculations for the pairwise euclidean distance
-    dist = tf.math.reduce_euclidean_norm(x_new, axis=[1,2,3])
-    scaled_dist = tf.exp(-dist / d_scale)
-    joint_loss = tf.reduce_mean(scaled_dist)
+    # Joint loss formula
+    # Pairwise euclidean distance between all generated samples k
+    lhs = tf.expand_dims(x_new, 1)
+    rhs = tf.expand_dims(x_new, 2)
+    dist = tf.square(tf.reduce_sum(lhs - rhs, axis=-1))
 
+    # Energy based formulation with a scaled constant
+    scaled_dist = tf.exp(-dist / d_scale)
+
+    # Take only the upper diagonal for the pairwise distances
+    upper_diag = tf.linalg.band_part(scaled_dist, 0, -1)
+
+    # Mean of all the distances in the batch and samples
+    joint_loss = tf.reduce_mean(upper_diag)
+
+    # Total loss for DLow
     total_loss = dlow_kld * lambda_kl + joint_loss * lambda_j + recon_loss * lambda_recon
 
     return total_loss, dlow_kld, joint_loss, recon_loss

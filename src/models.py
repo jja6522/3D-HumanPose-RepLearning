@@ -237,13 +237,13 @@ class DLow(keras.Model):
         # Layers for affine transformations for the k dlow_samples
         self.rotation_scaling = models.Sequential([
             layers.InputLayer(input_shape=(512)),
-            layers.Dense(latent_dim * dlow_samples, activation='tanh'),
+            layers.Dense(latent_dim * dlow_samples, activation=None),
             layers.Reshape([dlow_samples, latent_dim])
         ], name="rotation_scaling")
 
         self.translation = models.Sequential([
             layers.InputLayer(input_shape=(512)),
-            layers.Dense(latent_dim * dlow_samples, activation='tanh'),
+            layers.Dense(latent_dim * dlow_samples, activation=None),
             layers.Reshape([dlow_samples, latent_dim])
         ], name="translation")
 
