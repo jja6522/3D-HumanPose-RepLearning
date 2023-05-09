@@ -182,5 +182,5 @@ if __name__ == "__main__":
     # Invoke the post generator and rendering
     pose_gen = pose_generator()
     model_names = [model.name for model in eval_models]
-    render_animation(test_ds.skeleton, pose_gen, model_names, t_his, fix_0=True, output=None, size=5, ncol=7, interval=50)
+    render_animation(test_ds.skeleton, pose_gen, model_names, t_his, fix_0=True, output=None, size=5, ncol=7, interval=25)
 

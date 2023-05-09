@@ -4,8 +4,7 @@ import numpy as np
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import pdist, squareform
 
-#FIXME: Investigate why the animation is a bit slow at the beginning when using this function.
-#       Attempt converting it to @tf.function since the decoding from the cvae may be the slow part
+
 def dlow_sampling(traj_np, model, cvae, t_his, sample_num, num_seeds=1, concat_hist=True):
     # Remove the center hip joint for training
     traj_np = traj_np[..., 1:, :]
@@ -19,16 +18,15 @@ def dlow_sampling(traj_np, model, cvae, t_his, sample_num, num_seeds=1, concat_h
     # Transpose back to batches and take conditioned motions c
     c = np.transpose(traj[:t_his], (1, 0, 2))
 
+    # Repeat the pose for the number of samples
+    c_mul = tf.repeat(c, repeats = [sample_num * num_seeds], axis=0)
+
     # Use dlow encoder to get the affine transformation params
     z = model.sample_prior(c)
     z = tf.reshape(z, [z.shape[0] * z.shape[1], z.shape[2]])
 
     # Take the latent codes to be decoded
     z_sample = z[:sample_num, :]
-
-    # Repeat the conditional input c for k samples
-    c_mul = tf.repeat(c, repeats = [sample_num], axis=1)
-    c_mul = tf.reshape(c_mul, [c.shape[0] * sample_num, c.shape[1], c.shape[2]])
 
     # Decode the generated samples using the cvae decoder
     x_mul_new = cvae.decode(z_sample, c_mul)
