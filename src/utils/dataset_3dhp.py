@@ -3,9 +3,10 @@ import os
 from utils.dataset import Dataset
 from utils.skeleton import Skeleton
 from scipy.spatial.transform import Rotation
+import copy
 
 
-class Dataset3dhp(Dataset):
+class Dataset3DHP(Dataset):
 
     def __init__(self, mode, t_his=25, t_pred=100, actions='all', use_vel=False):
         self.use_vel = use_vel
@@ -18,35 +19,30 @@ class Dataset3dhp(Dataset):
         self.subjects_split = {'train': [1, 5, 6, 7, 8],
                                'test': [2, 3]}
         self.subjects = ['S%d' % x for x in self.subjects_split[self.mode]]
-        self.skeleton = Skeleton(parents=[-1, 0, 1, 2, 3,
-                              2, 5, 6,
-                              2, 8, 9,
-                              0, 11, 12,
-                              0, 14, 15],
-                    joints_left=[5, 6, 7, 11, 12, 13],
-                    joints_right=[8, 9, 10, 14, 15, 16])
-        self.removed_joints = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
-        self.kept_joints = np.array([x for x in range(32) if x not in self.removed_joints])
-        self.skeleton.remove_joints(self.removed_joints)
-        # self.skeleton._parents[11] = 8
-        # self.skeleton._parents[14] = 8
+        self.skeleton = Skeleton(parents=[-1,  0,  1,  2,  0,  4,  5,  0,
+                                           7,  8,  9,  8, 11, 12,  8, 14, 15],
+                                 joints_right=[1, 2, 3, 14, 15, 16],
+                                 joints_left=[4, 5, 6, 11, 12, 13])
+        self.kept_joints = np.arange(17)
         self.process_data()
 
     def process_data(self):
         data_o = np.load(self.data_file, allow_pickle=True)['data'].item()
         data_f = dict(filter(lambda x: x[0] in self.subjects, data_o.items()))
+
         if self.actions != 'all':
             for key in list(data_f.keys()):
                 data_f[key] = dict(filter(lambda x: all([a in x[0] for a in self.actions]), data_f[key].items()))
                 if len(data_f[key]) == 0:
                     data_f.pop(key)
+
         for data_s in data_f.values():
             for action in data_s.keys():
                 # this is edited to keep the mpi_inf compatible
                 seq = data_s[action].reshape(1, np.shape(data_s[action][:])[0], 28, 3)
                 # Take only the valid joints
-                joints_idx = [4, 3, 5, 6, 7, 9, 10, 11, 14, 15, 16, 18, 19, 20, 23, 24, 25]
-                sample = seq[:, :, joints_idx]
+                joint_idx = [4, 23, 24, 25, 18, 19, 20, 3, 5, 6, 7, 9, 10, 11, 14, 15, 16]
+                sample = seq[:, :, joint_idx]
 
                 # Rotate 270 degrees all coordinates
                 sample_new = sample.reshape(sample.shape[1] * sample.shape[2], 3)
@@ -65,9 +61,22 @@ class Dataset3dhp(Dataset):
                 std = sample_rot.std()
                 sample_norm = (sample_rot - mean) / std
 
-                data_s[action] = sample_norm
-        self.data = data_f
+                # Save the entries as float for compatiblity with tensorflow
+                data_s[action] = sample_norm.astype(np.float32)
 
+            # Center all joints at the hip for compatibility with H36M
+            root_positions = {}
+            for k in data_s.keys():
+                # Keep track of the global position
+                root_positions[k] = copy.deepcopy(data_s[k][:,:1])
+
+                # Remove the root from the 3d position
+                poses = data_s[k]
+                poses = poses - np.tile( poses[:,:1], [1, len(self.kept_joints), 1] )
+                data_s[k] = poses
+
+        # Update the preprocessed data
+        self.data = data_f
 
 
 if __name__ == '__main__':

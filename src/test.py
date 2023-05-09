@@ -17,8 +17,10 @@ from scipy.spatial.distance import pdist
 from scipy.spatial.distance import pdist, squareform
 
 from utils.dataset_h36m import DatasetH36M
-from utils.metrics import random_sampling, dlow_sampling, compute_diversity, compute_ade, compute_fde, compute_mmade, compute_mmfde, AverageMeter
+from utils.dataset_3dhp import Dataset3DHP
 from models import AE, VAE, DLow
+from utils.metrics import random_sampling, dlow_sampling, compute_diversity, compute_ade, compute_fde, compute_mmade, compute_mmfde, AverageMeter
+
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -69,6 +71,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="all", help="all, ae, vae, dlow")
+    parser.add_argument("--dataset", default="h36m", help="h36m, 3dhp")
     parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs to load a model")
     parser.add_argument("--dlow_samples", type=int, default=10, help="Number of DLow samples for epsilon (nk)")
     parser.add_argument('--num_seeds', type=int, default=1)
@@ -81,7 +84,14 @@ if __name__ == "__main__":
     #######################################
     # Dataset loading
     #######################################
-    test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
+    if args.dataset == 'h36m':
+        test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
+    elif args.dataset == '3dhp':
+        test_ds = Dataset3DHP('test', t_his, t_pred, actions='all')
+    else:
+        print("Invalid dataset")
+        sys.exit(0)
+
     traj_gt_arr = get_multimodal_gt(test_ds, t_his, args.multimodal_threshold)
 
     # Define the available models

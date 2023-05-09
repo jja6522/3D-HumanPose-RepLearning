@@ -9,14 +9,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from utils.dataset_h36m import DatasetH36M
+from utils.dataset_3dhp import Dataset3DHP
 from utils.visualization import render_animation
 from utils.metrics import random_sampling, dlow_sampling
+from models import AE, VAE, DLow
 
 import time
 import argparse
 from tqdm import tqdm, trange
 
-from models import AE, VAE, DLow
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -102,6 +103,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="all", help="all, ae, vae, dlow")
+    parser.add_argument("--dataset", default="h36m", help="h36m, 3dhp")
     parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs to load a model")
     parser.add_argument("--dlow_samples", type=int, default=10, help="Number of DLow samples for epsilon (nk)")
     parser.add_argument("--vis_samples", type=int, default=5, help="Number of samples to visualize")
@@ -114,7 +116,13 @@ if __name__ == "__main__":
     #######################################
     # Dataset loading
     #######################################
-    test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
+    if args.dataset == 'h36m':
+        test_ds = DatasetH36M('test', t_his, t_pred, actions='all')
+    elif args.dataset == '3dhp':
+        test_ds = Dataset3DHP('test', t_his, t_pred, actions='all')
+    else:
+        print("Invalid dataset")
+        sys.exit(0)
 
     # Define the available models
     model_dict = {

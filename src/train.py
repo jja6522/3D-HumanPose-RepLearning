@@ -9,12 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from utils.dataset_h36m import DatasetH36M
+from utils.dataset_3dhp import Dataset3DHP
+from models import AE, VAE, DLow
 from utils.visualization import render_animation
+
 import time
 import argparse
 from tqdm import tqdm, trange
 
-from models import AE, VAE, DLow
 
 ###########################################################
 # NOTE: Hack required to enable GPU operations by TF RNN
@@ -213,6 +215,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="vae", help="ae, vae, dlow")
+    parser.add_argument("--dataset", default="h36m", help="h36m, 3dhp")
     parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs for training")
     parser.add_argument("--samples_per_epoch", type=int, default=5000, help="Number of samples per epoch")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
@@ -225,7 +228,13 @@ if __name__ == "__main__":
     #######################################
     # Dataset loading
     #######################################
-    train_ds = DatasetH36M('train', t_his, t_pred, actions='all')
+    if args.dataset == 'h36m':
+        train_ds = DatasetH36M('train', t_his, t_pred, actions='all')
+    elif args.dataset == '3dhp':
+        train_ds = Dataset3DHP('train', t_his, t_pred, actions='all')
+    else:
+        print("Invalid dataset")
+        sys.exit(0)
 
     # Define the available models
     model_dict = {
